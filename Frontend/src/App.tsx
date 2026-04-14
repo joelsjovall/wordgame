@@ -3,6 +3,10 @@ import './App.css';
 import Home from './pages/Home';
 import Rules from './pages/Rules';
 import CreateGamePage from "./pages/CreateGamePage";
+import JoinGamePage from "./pages/JoinGamePage";
+
+
+
 
 
 
@@ -13,6 +17,7 @@ function App() {
       <Route path="/" element={<Home />} />
       <Route path="/rules" element={<Rules />} />
       <Route path="/create" element={<CreateGamePage />} />
+      <Route path="/join" element={<JoinGamePage />} />
     </Routes>
   );
 }
