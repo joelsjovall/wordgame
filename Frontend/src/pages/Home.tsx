@@ -25,7 +25,7 @@ function Home() {
         />
 
         <div className="divider" aria-hidden="true"></div>
-        <Link to="/rules">Regler</Link>
+        <Link to="/rules">Rules</Link>
       </section>
     </main>
   );
