@@ -1,5 +1,7 @@
 using Microsoft.EntityFrameworkCore;
 using Server.Data;
+using Server.Data.Repositories;
+using Server.Services;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -16,6 +18,8 @@ builder.Services.AddDbContext<AppDbContext>(options =>
 
     options.UseMySql(connectionString, new MySqlServerVersion(new Version(8, 0, 36)));
 });
+builder.Services.AddScoped<ICategoryWordRepository, CategoryWordRepository>();
+builder.Services.AddScoped<IWordValidationService, WordValidationService>();
 
 var app = builder.Build();
 
