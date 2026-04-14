@@ -14,7 +14,7 @@ builder.Services.AddDbContext<AppDbContext>(options =>
         throw new InvalidOperationException("Connection string 'DefaultConnection' is missing.");
     }
 
-    options.UseMySql(connectionString, ServerVersion.AutoDetect(connectionString));
+    options.UseMySql(connectionString, new MySqlServerVersion(new Version(8, 0, 36)));
 });
 
 var app = builder.Build();
@@ -30,7 +30,7 @@ app.MapControllers();
 
 app.MapGet("/", () => Results.Ok(new
 {
-    message = "WordGame API is running."
+    message = "Det funkar boys"
 }));
 
 app.Run();
