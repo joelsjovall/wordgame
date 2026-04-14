@@ -39,12 +39,14 @@ function Home() {
           inputMode="text"
         />
 
-        <button className="primary" type="button" onClick={handleJoin}>
+        <button className="primary join-button" type="button" onClick={handleJoin}>
           Join game
         </button>
 
         <div className="divider" aria-hidden="true"></div>
-        <Link to="/rules">Rules</Link>
+        <Link className="rules-link" to="/rules">
+          Rules
+        </Link>
       </section>
     </main>
   );

@@ -36,7 +36,9 @@ function Rules() {
         </p>
 
         <div className="divider" aria-hidden="true"></div>
-        <Link to="/">Back</Link>
+        <Link className="rules-link" to="/">
+          Back
+        </Link>
       </section>
     </main>
   );
