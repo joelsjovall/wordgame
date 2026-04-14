@@ -1,20 +1,20 @@
 {
   "format": 1,
   "restore": {
-    "C:\\Users\\joels\\repos\\wordgame\\wordgame.csproj": {}
+    "C:\\Users\\sigge\\wordgame\\wordgame\\wordgame.csproj": {}
   },
   "projects": {
-    "C:\\Users\\joels\\repos\\wordgame\\wordgame.csproj": {
+    "C:\\Users\\sigge\\wordgame\\wordgame\\wordgame.csproj": {
       "version": "1.0.0",
       "restore": {
-        "projectUniqueName": "C:\\Users\\joels\\repos\\wordgame\\wordgame.csproj",
+        "projectUniqueName": "C:\\Users\\sigge\\wordgame\\wordgame\\wordgame.csproj",
         "projectName": "wordgame",
-        "projectPath": "C:\\Users\\joels\\repos\\wordgame\\wordgame.csproj",
-        "packagesPath": "C:\\Users\\joels\\.nuget\\packages\\",
-        "outputPath": "C:\\Users\\joels\\repos\\wordgame\\obj\\",
+        "projectPath": "C:\\Users\\sigge\\wordgame\\wordgame\\wordgame.csproj",
+        "packagesPath": "C:\\Users\\sigge\\.nuget\\packages\\",
+        "outputPath": "C:\\Users\\sigge\\wordgame\\wordgame\\obj\\",
         "projectStyle": "PackageReference",
         "configFilePaths": [
-          "C:\\Users\\joels\\AppData\\Roaming\\NuGet\\NuGet.Config"
+          "C:\\Users\\sigge\\AppData\\Roaming\\NuGet\\NuGet.Config"
         ],
         "originalTargetFrameworks": [
           "net10.0"
@@ -68,7 +68,7 @@
               "privateAssets": "all"
             }
           },
-          "runtimeIdentifierGraphPath": "C:\\Program Files\\dotnet\\sdk\\10.0.103/PortableRuntimeIdentifierGraph.json",
+          "runtimeIdentifierGraphPath": "C:\\Program Files\\dotnet\\sdk\\10.0.102/PortableRuntimeIdentifierGraph.json",
           "packagesToPrune": {
             "Microsoft.AspNetCore": "(,10.0.32767]",
             "Microsoft.AspNetCore.Antiforgery": "(,10.0.32767]",
