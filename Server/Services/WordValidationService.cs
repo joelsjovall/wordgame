@@ -16,7 +16,7 @@ public class WordValidationService(ICategoryWordRepository categoryWordRepositor
     {
         var categoryWords = await categoryWordRepository.GetByCategoryIdAsync(categoryId, cancellationToken);
         var validWordsByNormalizedValue = categoryWords
-            .Where(categoryWord => !string.IsNullOrWhiteSpace(categoryWord.NormalizedWord))
+            .Where(categoryWord => categoryWord.IsActive && !string.IsNullOrWhiteSpace(categoryWord.NormalizedWord))
             .GroupBy(categoryWord => categoryWord.NormalizedWord)
             .ToDictionary(group => group.Key, group => group.First());
 

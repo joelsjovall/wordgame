@@ -24,9 +24,9 @@ public class WordValidationServiceTests
     public async Task ValidateWordsAsync_CountsOnlyUniqueValidWords()
     {
         var service = CreateService(
-            new CategoryWord { Id = 1, CategoryId = 10, Word = "Volvo", NormalizedWord = "volvo" },
-            new CategoryWord { Id = 2, CategoryId = 10, Word = "BMW", NormalizedWord = "bmw" },
-            new CategoryWord { Id = 3, CategoryId = 10, Word = "Audi", NormalizedWord = "audi" });
+            new CategoryWord { Id = 1, CategoryId = 10, Word = "Volvo", NormalizedWord = "volvo", IsActive = true },
+            new CategoryWord { Id = 2, CategoryId = 10, Word = "BMW", NormalizedWord = "bmw", IsActive = true },
+            new CategoryWord { Id = 3, CategoryId = 10, Word = "Audi", NormalizedWord = "audi", IsActive = true });
 
         var result = await service.ValidateWordsAsync(10, [" Volvo ", "BMW", "bmw", "Invalid"]);
 
@@ -71,14 +71,28 @@ public class WordValidationServiceTests
     public async Task ValidateWordsAsync_OnlyUsesWordsFromRequestedCategory()
     {
         var service = CreateService(
-            new CategoryWord { Id = 1, CategoryId = 10, Word = "Volvo", NormalizedWord = "volvo" },
-            new CategoryWord { Id = 2, CategoryId = 20, Word = "Apple", NormalizedWord = "apple" });
+            new CategoryWord { Id = 1, CategoryId = 10, Word = "Volvo", NormalizedWord = "volvo", IsActive = true },
+            new CategoryWord { Id = 2, CategoryId = 20, Word = "Apple", NormalizedWord = "apple", IsActive = true });
 
         var result = await service.ValidateWordsAsync(10, ["Volvo", "Apple"]);
 
         Assert.Equal(1, result.ValidUniqueWordCount);
         Assert.True(result.Words[0].IsValid);
         Assert.False(result.Words[0].IsDuplicate);
+        Assert.False(result.Words[1].IsValid);
+    }
+
+    [Fact]
+    public async Task ValidateWordsAsync_IgnoresInactiveCategoryWords()
+    {
+        var service = CreateService(
+            new CategoryWord { Id = 1, CategoryId = 10, Word = "Volvo", NormalizedWord = "volvo", IsActive = true },
+            new CategoryWord { Id = 2, CategoryId = 10, Word = "Saab", NormalizedWord = "saab", IsActive = false });
+
+        var result = await service.ValidateWordsAsync(10, ["Volvo", "Saab"]);
+
+        Assert.Equal(1, result.ValidUniqueWordCount);
+        Assert.True(result.Words[0].IsValid);
         Assert.False(result.Words[1].IsValid);
     }
 

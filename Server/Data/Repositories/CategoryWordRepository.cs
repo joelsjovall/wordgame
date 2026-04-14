@@ -9,7 +9,7 @@ public class CategoryWordRepository(AppDbContext dbContext) : ICategoryWordRepos
     {
         return await dbContext.CategoryWords
             .AsNoTracking()
-            .Where(categoryWord => categoryWord.CategoryId == categoryId)
+            .Where(categoryWord => categoryWord.CategoryId == categoryId && categoryWord.IsActive)
             .ToListAsync(cancellationToken);
     }
 }
