@@ -20,6 +20,7 @@ builder.Services.AddDbContext<AppDbContext>(options =>
 });
 builder.Services.AddScoped<ICategoryWordRepository, CategoryWordRepository>();
 builder.Services.AddScoped<IWordValidationService, WordValidationService>();
+builder.Services.AddScoped<IRoundService, RoundService>();
 
 var app = builder.Build();
 
