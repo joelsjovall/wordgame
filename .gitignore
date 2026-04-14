@@ -1,0 +1,32 @@
+# .NET build output
+bin/
+obj/
+TestResults/
+*.user
+*.rsuser
+*.suo
+
+# ASP.NET local config
+appsettings.Local.json
+appsettings.*.local.json
+
+# Frontend build output and dependencies
+Frontend/node_modules/
+Frontend/dist/
+Frontend/dist-ssr/
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+lerna-debug.log*
+
+# Editors
+.vs/
+.vscode/*
+!.vscode/extensions.json
+.idea/
+
+# OS files
+.DS_Store
+Thumbs.db
