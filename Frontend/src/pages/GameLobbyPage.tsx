@@ -4,37 +4,62 @@ import { useLocation, Link } from "react-router-dom";
 function GameLobbyPage() {
   const location = useLocation();
   const queryParams = new URLSearchParams(location.search);
-  const sessionCode = queryParams.get("code") || "";
-  const username = queryParams.get("user");
 
-  const [players, setPlayers] = useState([]);
-  const [categories, setCategories] = useState([]);
+  const sessionCode = queryParams.get("code") || "";
+  const username = queryParams.get("user") || "";
+
+  const [players, setPlayers] = useState<any[]>([]);
+  const [categories, setCategories] = useState<any[]>([]);
   const [selectedCategory, setSelectedCategory] = useState("");
-  const [words, setWords] = useState("");
+
+  // Word input states
+  const [currentWord, setCurrentWord] = useState("");
   const [correctCount, setCorrectCount] = useState(0);
+  const [results, setResults] = useState<{ word: string; correct: boolean; }[]>([]);
 
   // Hämta spelare
   useEffect(() => {
     fetch(`http://localhost:5000/api/games/${sessionCode}/players`)
       .then((res) => res.json())
-      .then((data) => setPlayers(data));
+      .then((data) => setPlayers(data))
+      .catch(() => console.log("Kunde inte hämta spelare"));
   }, [sessionCode]);
 
   // Hämta kategorier
   useEffect(() => {
     fetch("http://localhost:5000/api/categories")
       .then((res) => res.json())
-      .then((data) => setCategories(data));
+      .then((data) => setCategories(data))
+      .catch(() => console.log("Kunde inte hämta kategorier"));
   }, []);
 
-  // Räkna rätt ord (placeholder-logik)
-  const handleCountWords = () => {
-    const list = words
-      .split(",")
-      .map((w) => w.trim())
-      .filter((w) => w.length > 0);
+  // Placeholder-validering (byt ut mot backend senare)
+  const validateWord = (word: string) => {
+    return word.length > 2;
+  };
 
-    setCorrectCount(list.length);
+  // Enter → skicka ordet
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === "Enter") {
+      e.preventDefault();
+      submitWord();
+    }
+  };
+
+  // Skicka ordet
+  const submitWord = () => {
+    const trimmed = currentWord.trim();
+    if (!trimmed) return;
+
+    const isCorrect = validateWord(trimmed);
+
+    setResults((prev) => [...prev, { word: trimmed, correct: isCorrect }]);
+
+    if (isCorrect) {
+      setCorrectCount((prev) => prev + 1);
+    }
+
+    setCurrentWord("");
   };
 
   return (
@@ -45,7 +70,7 @@ function GameLobbyPage() {
         {/* Spelare */}
         <h2>Players</h2>
         <ul>
-          {players.map((p: any) => (
+          {players.map((p) => (
             <li key={p.id}>{p.username}</li>
           ))}
         </ul>
@@ -60,7 +85,7 @@ function GameLobbyPage() {
           onChange={(e) => setSelectedCategory(e.target.value)}
         >
           <option value="">Select...</option>
-          {categories.map((c: any) => (
+          {categories.map((c) => (
             <option key={c.id} value={c.id}>
               {c.name}
             </option>
@@ -70,18 +95,25 @@ function GameLobbyPage() {
         <div className="divider" aria-hidden="true"></div>
 
         {/* Ord-input */}
-        <label className="code-label">Your words (comma separated)</label>
-        <textarea
+        <label className="code-label">Type your word</label>
+        <input
           className="code-input"
-          rows={4}
-          placeholder="Volvo, BMW, Audi..."
-          value={words}
-          onChange={(e) => setWords(e.target.value)}
+          type="text"
+          placeholder="Type a word and press Enter"
+          value={currentWord}
+          onChange={(e) => setCurrentWord(e.target.value)}
+          onKeyDown={handleKeyDown}
         />
 
-        <button className="primary" type="button" onClick={handleCountWords}>
-          Count correct words
-        </button>
+        {/* Resultat */}
+        <h3>Results</h3>
+        <ul>
+          {results.map((r, i) => (
+            <li key={i} style={{ color: r.correct ? "green" : "red" }}>
+              {r.word} {r.correct ? "✓" : "✗"}
+            </li>
+          ))}
+        </ul>
 
         <h3>Correct: {correctCount}</h3>
 

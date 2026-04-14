@@ -10,19 +10,31 @@ function JoinGamePage() {
   const sessionCode = queryParams.get("code") || "";
 
   const [username, setUsername] = useState("");
-
-  const handleJoin = () => {
+  const handleJoin = async () => {
     if (!username) {
       alert("Please enter a username");
       return;
     }
 
-    // TODO: Skicka username + sessionCode till backend
-    console.log("Joining game:", { username, sessionCode });
+    // Skicka username + sessionCode till backend
+    const res = await fetch("http://localhost:5000/api/games/join", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        username: username,
+        code: sessionCode
+      })
+    });
 
-    // TODO: navigate till lobby
-    // navigate(`/lobby/${sessionCode}`);
+    if (!res.ok) {
+      alert("Could not join game");
+      return;
+    }
+
+    // Navigera till lobby
+    navigate(`/lobby?code=${sessionCode}&user=${username}`);
   };
+
 
   return (
     <main className="page">
