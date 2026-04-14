@@ -1,0 +1,17 @@
+{
+  "version": 2,
+  "dgSpecHash": "C0NNvbdJ0FQ=",
+  "success": false,
+  "projectFilePath": "C:\\Users\\joels\\repos\\wordgame\\Server\\Server.csproj",
+  "expectedPackageFiles": [],
+  "logs": [
+    {
+      "code": "NU1301",
+      "level": "Error",
+      "message": "Unable to get repository signature information for source https://api.nuget.org/v3-index/repository-signatures/5.0.0/index.json.\r\n  Ett försök gjordes att få åtkomst till en socket på ett sätt som är förbjudet av åtkomstbehörigheterna. (api.nuget.org:443)\r\n  Ett försök gjordes att få åtkomst till en socket på ett sätt som är förbjudet av åtkomstbehörigheterna.",
+      "projectPath": "C:\\Users\\joels\\repos\\wordgame\\Server\\Server.csproj",
+      "filePath": "C:\\Users\\joels\\repos\\wordgame\\Server\\Server.csproj",
+      "targetGraphs": []
+    }
+  ]
+}
