@@ -1,7 +1,15 @@
 import { Link, useNavigate } from 'react-router-dom';
+import { useState } from 'react';
 
 function Home() {
   const navigate = useNavigate();
+  const [code, setCode] = useState("");
+
+  const handleJoin = () => {
+    if (!code) return;
+    navigate(`/join?code=${code}`);
+  };
+
   return (
     <main className="page">
       <section className="card">
@@ -26,11 +34,19 @@ function Home() {
           type="text"
           placeholder="XXXX-XXXX"
           autoComplete="off"
+          value={code}
+          onChange={(e) => setCode(e.target.value)}
           inputMode="text"
         />
 
+        <button className="primary join-button" type="button" onClick={handleJoin}>
+          Join game
+        </button>
+
         <div className="divider" aria-hidden="true"></div>
-        <Link to="/rules">Regler</Link>
+        <Link className="rules-link" to="/rules">
+          Rules
+        </Link>
       </section>
     </main>
   );

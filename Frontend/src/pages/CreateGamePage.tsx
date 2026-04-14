@@ -1,9 +1,13 @@
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
+import { useNavigate } from "react-router-dom";
+
 
 function CreateGamePage() {
   const [username, setUsername] = useState("");
   const [sessionCode, setSessionCode] = useState("");
+  const navigate = useNavigate();
+
 
   // Generera 6-siffrig kod när sidan laddas
   useEffect(() => {
@@ -17,11 +21,11 @@ function CreateGamePage() {
       return;
     }
 
-    // TODO: Skicka username + sessionCode till backend
-    console.log("Creating game:", { username, sessionCode });
+    // TODO: skicka username + sessionCode till backend
 
-    // TODO: navigate till lobby
+    navigate(`/lobby?code=${sessionCode}&user=${username}`);
   };
+
 
   return (
     <main className="page">

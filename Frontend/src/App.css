@@ -100,6 +100,37 @@
   color: rgba(98, 74, 63, 0.45);
 }
 
+.join-button {
+  display: block;
+  margin: 24px auto 0;
+}
+
+.rules-link {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 10px 26px;
+  border-radius: 999px;
+  border: 2px solid var(--accent);
+  color: var(--accent);
+  text-decoration: none;
+  font-family: var(--display);
+  font-size: 1.05rem;
+  letter-spacing: 0.4px;
+  transition: transform 0.2s ease, box-shadow 0.2s ease, background-color 0.2s ease;
+}
+
+.rules-link:hover {
+  transform: translateY(-1px);
+  background-color: rgba(179, 106, 74, 0.12);
+  box-shadow: 0 10px 20px rgba(170, 96, 62, 0.2);
+}
+
+.rules-link:focus-visible {
+  outline: 3px solid rgba(170, 96, 62, 0.35);
+  outline-offset: 3px;
+}
+
 @media (max-width: 600px) {
   .card {
     padding: 44px 28px 52px;
