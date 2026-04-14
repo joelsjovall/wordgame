@@ -1,12 +1,17 @@
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 
 function Home() {
+  const navigate = useNavigate();
   return (
     <main className="page">
       <section className="card">
         <h1 className="title">WordGame</h1>
 
-        <button className="primary" type="button">
+        <button
+          className="primary"
+          type="button"
+          onClick={() => navigate("/create")}
+        >
           New game
         </button>
 
