@@ -196,6 +196,7 @@ public class AppDbContext : DbContext
             entity.Property(x => x.CategoryId).HasColumnName("category_id");
             entity.Property(x => x.Word).HasColumnName("word").HasMaxLength(255);
             entity.Property(x => x.NormalizedWord).HasColumnName("normalized_word").HasMaxLength(255);
+            entity.Property(x => x.IsActive).HasColumnName("is_active");
 
             entity.HasOne(x => x.Category)
                 .WithMany(x => x.Words)

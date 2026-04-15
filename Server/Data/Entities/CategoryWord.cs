@@ -6,6 +6,7 @@ public class CategoryWord
     public int CategoryId { get; set; }
     public string Word { get; set; } = string.Empty;
     public string NormalizedWord { get; set; } = string.Empty;
+    public bool IsActive { get; set; }
 
     public Category? Category { get; set; }
     public ICollection<WordAlias> Aliases { get; set; } = new List<WordAlias>();
