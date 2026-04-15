@@ -19,6 +19,7 @@ builder.Services.AddDbContext<AppDbContext>(options =>
     options.UseMySql(connectionString, new MySqlServerVersion(new Version(8, 0, 36)));
 });
 builder.Services.AddScoped<ICategoryWordRepository, CategoryWordRepository>();
+builder.Services.AddScoped<IRoundRepository, RoundRepository>();
 builder.Services.AddScoped<IWordValidationService, WordValidationService>();
 builder.Services.AddScoped<IRoundService, RoundService>();
 

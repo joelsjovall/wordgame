@@ -1,10 +1,26 @@
 using Server.Data.Entities;
+using Server.Data.Repositories;
 
 namespace Server.Services;
 
-public class RoundService : IRoundService
+public class RoundService(IRoundRepository roundRepository) : IRoundService
 {
     private const string BiddingStatus = "bidding";
+
+    public async Task<RoundBidResult> PlaceBidAsync(int roundId, int playerId, int bidCount, CancellationToken cancellationToken = default)
+    {
+        var round = await roundRepository.GetByIdAsync(roundId, cancellationToken);
+
+        if (round is null)
+        {
+            throw new KeyNotFoundException($"Round {roundId} was not found.");
+        }
+
+        var result = PlaceBid(round, playerId, bidCount);
+        await roundRepository.SaveChangesAsync(cancellationToken);
+
+        return result;
+    }
 
     public RoundBidResult PlaceBid(Round round, int playerId, int bidCount)
     {
