@@ -6,6 +6,8 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Server", "Server\Server.csp
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "WordGame.UnitTests", "Testing\UnitTests\WordGame.UnitTests.csproj", "{8FC90D5F-52D8-46F8-97A7-F7E9AC1C0A14}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "WordGame.ApiTests", "Testing\ApiTests\WordGame.ApiTests.csproj", "{3D6868A1-4D5E-4C6D-9E17-1207147F0727}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -20,6 +22,10 @@ Global
 		{8FC90D5F-52D8-46F8-97A7-F7E9AC1C0A14}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{8FC90D5F-52D8-46F8-97A7-F7E9AC1C0A14}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{8FC90D5F-52D8-46F8-97A7-F7E9AC1C0A14}.Release|Any CPU.Build.0 = Release|Any CPU
+		{3D6868A1-4D5E-4C6D-9E17-1207147F0727}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{3D6868A1-4D5E-4C6D-9E17-1207147F0727}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{3D6868A1-4D5E-4C6D-9E17-1207147F0727}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{3D6868A1-4D5E-4C6D-9E17-1207147F0727}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
