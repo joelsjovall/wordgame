@@ -1,20 +1,20 @@
 {
   "format": 1,
   "restore": {
-    "C:\\Users\\måns\\wordgame\\Server\\Server.csproj": {}
+    "C:\\Users\\joels\\repos\\wordgame\\Server\\Server.csproj": {}
   },
   "projects": {
-    "C:\\Users\\måns\\wordgame\\Server\\Server.csproj": {
+    "C:\\Users\\joels\\repos\\wordgame\\Server\\Server.csproj": {
       "version": "1.0.0",
       "restore": {
-        "projectUniqueName": "C:\\Users\\måns\\wordgame\\Server\\Server.csproj",
+        "projectUniqueName": "C:\\Users\\joels\\repos\\wordgame\\Server\\Server.csproj",
         "projectName": "Server",
-        "projectPath": "C:\\Users\\måns\\wordgame\\Server\\Server.csproj",
-        "packagesPath": "C:\\Users\\måns\\.nuget\\packages\\",
-        "outputPath": "C:\\Users\\måns\\wordgame\\Server\\obj\\",
+        "projectPath": "C:\\Users\\joels\\repos\\wordgame\\Server\\Server.csproj",
+        "packagesPath": "C:\\Users\\joels\\.nuget\\packages\\",
+        "outputPath": "C:\\Users\\joels\\repos\\wordgame\\Server\\obj\\",
         "projectStyle": "PackageReference",
         "configFilePaths": [
-          "C:\\Users\\måns\\AppData\\Roaming\\NuGet\\NuGet.Config"
+          "C:\\Users\\joels\\AppData\\Roaming\\NuGet\\NuGet.Config"
         ],
         "originalTargetFrameworks": [
           "net9.0"
