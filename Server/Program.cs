@@ -1,6 +1,7 @@
 using Microsoft.EntityFrameworkCore;
 using Server.Data;
 using Server.Data.Repositories;
+using Server.Endpoints;
 using Server.Services;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -33,6 +34,7 @@ if (app.Environment.IsDevelopment())
 app.UseHttpsRedirection();
 
 app.MapControllers();
+app.MapCategoriesEndpoints();
 
 app.MapGet("/", () => Results.Ok(new
 {
@@ -40,3 +42,5 @@ app.MapGet("/", () => Results.Ok(new
 }));
 
 app.Run();
+
+public partial class Program;
