@@ -1,0 +1,56 @@
+name: CI
+
+on:
+  push:
+    branches:
+      - main
+      - STpage
+  pull_request:
+    branches:
+      - main
+
+jobs:
+  build-test:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 10.0.x
+
+      - name: Restore .NET dependencies
+        run: dotnet restore wordgame.sln
+
+      - name: Build .NET solution
+        run: dotnet build wordgame.sln --configuration Release --no-restore
+
+      - name: Run unit tests
+        run: dotnet test Testing/UnitTests/WordGame.UnitTests.csproj --configuration Release --no-build
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: Frontend/package-lock.json
+
+      - name: Install frontend dependencies
+        run: npm ci
+        working-directory: Frontend
+
+      - name: Build frontend
+        run: npm run build
+        working-directory: Frontend
+
+      - name: Run frontend tests
+        run: npm test
+        working-directory: Frontend
+
+        
+ 
+
+
