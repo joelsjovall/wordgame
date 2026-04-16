@@ -72,7 +72,7 @@ jobs:
           exit 1
 
       - name: Run API tests
-        run: dotnet test Testing/ApiTests/ApiTests.csproj --configuration Release
+        run: dotnet test Testing/ApiTests/WordGame.ApiTests.csproj --configuration Release
 
   
       - name: Upload frontend build
