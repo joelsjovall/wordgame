@@ -1,10 +1,11 @@
-name: CI
+name: .NET
 
 on:
   push:
     branches:
       - main
       - STpage
+      - publish
   pull_request:
     branches:
       - main
@@ -16,6 +17,13 @@ jobs:
     steps:
       - name: Check out repository
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Run Gitleaks
+        uses: gitleaks/gitleaks-action@v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Set up .NET
         uses: actions/setup-dotnet@v4
@@ -27,6 +35,9 @@ jobs:
 
       - name: Build .NET solution
         run: dotnet build wordgame.sln --configuration Release --no-restore
+
+      - name: Check .NET package vulnerabilities
+        run: dotnet list wordgame.sln package --vulnerable
 
       - name: Run unit tests
         run: dotnet test Testing/UnitTests/WordGame.UnitTests.csproj --configuration Release --no-build
@@ -50,7 +61,39 @@ jobs:
         run: npm test
         working-directory: Frontend
 
-        
+      - name: Start backend
+        run: dotnet run --project Server/Server.csproj --urls "http://localhost:5000" &
+
+      - name: Wait for backend to be ready
+        run: |
+          for i in {1..30}; do
+            if curl -s http://localhost:5000/health > /dev/null; then
+              echo "Backend is up"
+              exit 0
+            fi
+            echo "Waiting for backend..."
+            sleep 2
+          done
+          echo "Backend did not start in time"
+          exit 1
+
+      - name: Run API tests
+        run: dotnet test Testing/ApiTests/WordGame.ApiTests.csproj --configuration Release
+
+  
+      - name: Upload frontend build
+        uses: actions/upload-artifact@v4
+        with:
+          name: frontend-dist
+          path: Frontend/dist
+
+      - name: Upload backend build
+        uses: actions/upload-artifact@v4
+        with:
+          name: backend-build
+          path: Server/bin/Release
+
+
  
 
 
