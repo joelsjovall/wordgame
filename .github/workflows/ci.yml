@@ -1,10 +1,11 @@
-name: CI
+name: .NET
 
 on:
   push:
     branches:
       - main
       - STpage
+      - publish
   pull_request:
     branches:
       - main
@@ -32,6 +33,9 @@ jobs:
 
       - name: Build .NET solution
         run: dotnet build wordgame.sln --configuration Release --no-restore
+
+      - name: listing
+        run: dotnet list ... --vulnerable
 
       - name: Run unit tests
         run: dotnet test Testing/UnitTests/WordGame.UnitTests.csproj --configuration Release --no-build

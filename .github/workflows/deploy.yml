@@ -1,0 +1,9 @@
+name: Deploy
+
+on:
+  workflow_run:
+    workflows: [".NET"]
+    types: [completed]
+    branches: ["publish"]
+
+    
