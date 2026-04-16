@@ -1,6 +1,8 @@
 import { useState } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL ?? "";
+
 function JoinGamePage() {
   const navigate = useNavigate();
   const location = useLocation();
@@ -17,7 +19,7 @@ function JoinGamePage() {
     }
 
     // Skicka username + sessionCode till backend
-    const res = await fetch("http://localhost:5000/api/games/join", {
+    const res = await fetch(`${API_BASE_URL}/api/games/join`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
@@ -31,8 +33,10 @@ function JoinGamePage() {
       return;
     }
 
+    const data: { gameId: number; code: string; userId: number; username: string; } = await res.json();
+
     // Navigera till lobby
-    navigate(`/lobby?code=${sessionCode}&user=${username}`);
+    navigate(`/lobby?code=${encodeURIComponent(data.code)}&gameId=${data.gameId}&user=${encodeURIComponent(data.username)}&playerId=${data.userId}`);
   };
 
 

@@ -2,10 +2,12 @@ import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { useNavigate } from "react-router-dom";
 
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL ?? "";
 
 function CreateGamePage() {
   const [username, setUsername] = useState("");
   const [sessionCode, setSessionCode] = useState("");
+  const [isCreating, setIsCreating] = useState(false);
   const navigate = useNavigate();
 
 
@@ -15,15 +17,32 @@ function CreateGamePage() {
     setSessionCode(code);
   }, []);
 
-  const handleContinue = () => {
+  const handleContinue = async () => {
     if (!username) {
       alert("Please enter a username");
       return;
     }
 
-    // TODO: skicka username + sessionCode till backend
+    setIsCreating(true);
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/games`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ username }),
+      });
 
-    navigate(`/lobby?code=${sessionCode}&user=${username}`);
+      if (!response.ok) {
+        const errorBody = await response.text();
+        throw new Error(errorBody || "Could not create game");
+      }
+
+      const data: { gameId: number; code: string; userId: number; username: string; } = await response.json();
+      navigate(`/lobby?code=${encodeURIComponent(data.code)}&gameId=${data.gameId}&user=${encodeURIComponent(data.username)}&playerId=${data.userId}`);
+    } catch (error) {
+      alert(error instanceof Error ? error.message : "Could not create game");
+    } finally {
+      setIsCreating(false);
+    }
   };
 
 
@@ -54,8 +73,8 @@ function CreateGamePage() {
 
         <p>Share this code with your friends so they can join your game.</p>
 
-        <button className="primary" type="button" onClick={handleContinue}>
-          Continue
+        <button className="primary" type="button" onClick={() => void handleContinue()} disabled={isCreating}>
+          {isCreating ? "Creating..." : "Continue"}
         </button>
 
         <div className="divider" aria-hidden="true"></div>
