@@ -1,20 +1,20 @@
 {
   "format": 1,
   "restore": {
-    "C:\\Users\\måns\\wordgame\\Server\\Server.csproj": {}
+    "/Users/lukaseriksson/GitHub/wordgame/Server/Server.csproj": {}
   },
   "projects": {
-    "C:\\Users\\måns\\wordgame\\Server\\Server.csproj": {
+    "/Users/lukaseriksson/GitHub/wordgame/Server/Server.csproj": {
       "version": "1.0.0",
       "restore": {
-        "projectUniqueName": "C:\\Users\\måns\\wordgame\\Server\\Server.csproj",
+        "projectUniqueName": "/Users/lukaseriksson/GitHub/wordgame/Server/Server.csproj",
         "projectName": "Server",
-        "projectPath": "C:\\Users\\måns\\wordgame\\Server\\Server.csproj",
-        "packagesPath": "C:\\Users\\måns\\.nuget\\packages\\",
-        "outputPath": "C:\\Users\\måns\\wordgame\\Server\\obj\\",
+        "projectPath": "/Users/lukaseriksson/GitHub/wordgame/Server/Server.csproj",
+        "packagesPath": "/Users/lukaseriksson/.nuget/packages/",
+        "outputPath": "/Users/lukaseriksson/GitHub/wordgame/Server/obj/",
         "projectStyle": "PackageReference",
         "configFilePaths": [
-          "C:\\Users\\måns\\AppData\\Roaming\\NuGet\\NuGet.Config"
+          "/Users/lukaseriksson/.nuget/NuGet/NuGet.Config"
         ],
         "originalTargetFrameworks": [
           "net9.0"
@@ -71,19 +71,15 @@
           "downloadDependencies": [
             {
               "name": "Microsoft.AspNetCore.App.Ref",
-              "version": "[9.0.13, 9.0.13]"
+              "version": "[9.0.12, 9.0.12]"
             },
             {
-              "name": "Microsoft.NETCore.App.Host.win-x64",
-              "version": "[9.0.13, 9.0.13]"
+              "name": "Microsoft.NETCore.App.Host.osx-arm64",
+              "version": "[9.0.12, 9.0.12]"
             },
             {
               "name": "Microsoft.NETCore.App.Ref",
-              "version": "[9.0.13, 9.0.13]"
-            },
-            {
-              "name": "Microsoft.WindowsDesktop.App.Ref",
-              "version": "[9.0.13, 9.0.13]"
+              "version": "[9.0.12, 9.0.12]"
             }
           ],
           "frameworkReferences": {
@@ -94,7 +90,7 @@
               "privateAssets": "all"
             }
           },
-          "runtimeIdentifierGraphPath": "C:\\Program Files\\dotnet\\sdk\\10.0.103/PortableRuntimeIdentifierGraph.json"
+          "runtimeIdentifierGraphPath": "/usr/local/share/dotnet/sdk/10.0.102/PortableRuntimeIdentifierGraph.json"
         }
       }
     }
