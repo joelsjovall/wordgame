@@ -1,0 +1,104 @@
+{
+  "info": {
+    "_postman_id": "",
+    "name": "WordGame API",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    {
+      "key": "baseUrl",
+      "value": "http://localhost:5068",
+      "type": "string"
+    }
+  ],
+  "item": [
+    {
+      "name": "Get All Categories",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "{{baseUrl}}/api/categories",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "api",
+            "categories"
+          ]
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"Status is 200\", function () {",
+              "    pm.response.to.have.status(200);",
+              "});",
+              "",
+              "const jsonData = pm.response.json();",
+              "",
+              "pm.test(\"Has count\", function () {",
+              "    pm.expect(jsonData).to.have.property(\"count\");",
+              "});",
+              "",
+              "pm.test(\"Has categories array\", function () {",
+              "    pm.expect(jsonData.categories).to.be.an(\"array\");",
+              "});",
+              "",
+              "pm.test(\"Count matches length\", function () {",
+              "    pm.expect(jsonData.count).to.eql(jsonData.categories.length);",
+              "});"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Get Categories by Difficulty (easy)",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "{{baseUrl}}/api/categories?difficulty=easy",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "api",
+            "categories"
+          ],
+          "query": [
+            {
+              "key": "difficulty",
+              "value": "easy"
+            }
+          ]
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"Status is 200\", function () {",
+              "    pm.response.to.have.status(200);",
+              "});",
+              "",
+              "const jsonData = pm.response.json();",
+              "",
+              "pm.test(\"Filtered correctly\", function () {",
+              "    jsonData.categories.forEach(cat => {",
+              "        pm.expect(cat.difficulty.toLowerCase()).to.eql(\"easy\");",
+              "    });",
+              "});"
+            ]
+          }
+        }
+      ]
+    }
+  ]
+}
