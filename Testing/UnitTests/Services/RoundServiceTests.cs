@@ -1,4 +1,5 @@
 using Server.Data.Entities;
+using Server.Data.Repositories;
 using Server.Services;
 using Xunit;
 
@@ -9,7 +10,7 @@ public class RoundServiceTests
     [Fact]
     public void PlaceBid_AllowsFirstBidInBiddingRound()
     {
-        var service = new RoundService();
+        var service = CreateService();
         var round = CreateRound();
 
         var result = service.PlaceBid(round, playerId: 5, bidCount: 3);
@@ -24,7 +25,7 @@ public class RoundServiceTests
     [Fact]
     public void PlaceBid_RequiresBidToBeHigherThanCurrentHighestBid()
     {
-        var service = new RoundService();
+        var service = CreateService();
         var round = CreateRound(highestBidCount: 4, highestBidPlayerId: 2);
 
         var exception = Assert.Throws<InvalidOperationException>(() => service.PlaceBid(round, playerId: 3, bidCount: 4));
@@ -35,7 +36,7 @@ public class RoundServiceTests
     [Fact]
     public void PlaceBid_UpdatesHighestBidWhenBidIsHigher()
     {
-        var service = new RoundService();
+        var service = CreateService();
         var round = CreateRound(highestBidCount: 4, highestBidPlayerId: 2);
 
         service.PlaceBid(round, playerId: 3, bidCount: 6);
@@ -49,7 +50,7 @@ public class RoundServiceTests
     [Fact]
     public void PlaceBid_RejectsBidWhenRoundIsNotInBiddingStatus()
     {
-        var service = new RoundService();
+        var service = CreateService();
         var round = CreateRound(status: "challenge_active");
 
         var exception = Assert.Throws<InvalidOperationException>(() => service.PlaceBid(round, playerId: 2, bidCount: 5));
@@ -60,10 +61,40 @@ public class RoundServiceTests
     [Fact]
     public void PlaceBid_RejectsBidCountLessThanOrEqualToZero()
     {
-        var service = new RoundService();
+        var service = CreateService();
         var round = CreateRound();
 
         Assert.Throws<ArgumentOutOfRangeException>(() => service.PlaceBid(round, playerId: 2, bidCount: 0));
+    }
+
+    [Fact]
+    public async Task PlaceBidAsync_LoadsRoundAndSavesValidBid()
+    {
+        var round = CreateRound();
+        var repository = new FakeRoundRepository(round);
+        var service = new RoundService(repository);
+
+        var result = await service.PlaceBidAsync(round.Id, playerId: 4, bidCount: 2);
+
+        Assert.Equal(2, result.Round.HighestBidCount);
+        Assert.Equal(4, result.Round.HighestBidPlayerId);
+        Assert.True(repository.SaveWasCalled);
+    }
+
+    [Fact]
+    public async Task PlaceBidAsync_ThrowsWhenRoundDoesNotExist()
+    {
+        var repository = new FakeRoundRepository(null);
+        var service = new RoundService(repository);
+
+        var exception = await Assert.ThrowsAsync<KeyNotFoundException>(() => service.PlaceBidAsync(99, playerId: 4, bidCount: 2));
+
+        Assert.Equal("Round 99 was not found.", exception.Message);
+    }
+
+    private static RoundService CreateService()
+    {
+        return new RoundService(new FakeRoundRepository(null));
     }
 
     private static Round CreateRound(
@@ -82,5 +113,28 @@ public class RoundServiceTests
             HighestBidPlayerId = highestBidPlayerId,
             CreatedAt = DateTime.UtcNow
         };
+    }
+
+    private sealed class FakeRoundRepository(Round? round) : IRoundRepository
+    {
+        private readonly Round? _round = round;
+
+        public bool SaveWasCalled { get; private set; }
+
+        public Task<Round?> GetByIdAsync(int roundId, CancellationToken cancellationToken = default)
+        {
+            if (_round?.Id == roundId)
+            {
+                return Task.FromResult<Round?>(_round);
+            }
+
+            return Task.FromResult<Round?>(null);
+        }
+
+        public Task SaveChangesAsync(CancellationToken cancellationToken = default)
+        {
+            SaveWasCalled = true;
+            return Task.CompletedTask;
+        }
     }
 }

@@ -1,88 +1,77 @@
 import { useEffect, useState } from "react";
 import { Link, useLocation } from "react-router-dom";
 
-type Player = {
-  id: string | number;
-  username: string;
-  score?: number;
-};
-
 type Category = {
-  id: string | number;
+  id: number;
   name: string;
+  difficulty: "easy" | "medium" | "hard" | string;
+  points: number;
 };
 
-type Result = {
-  word: string;
-  correct: boolean;
+type CategoriesResponse = {
+  count: number;
+  categories: Category[];
 };
+
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL ?? "";
+
+const difficultyOptions: { key: "easy" | "medium" | "hard"; label: string; points: number }[] = [
+  { key: "easy", label: "Easy", points: 1 },
+  { key: "medium", label: "Medium", points: 2 },
+  { key: "hard", label: "Hard", points: 3 },
+];
 
 function GameLobbyPage() {
   const location = useLocation();
   const queryParams = new URLSearchParams(location.search);
 
   const sessionCode = queryParams.get("code") || "";
-  const username = queryParams.get("user") || "";
 
-  const [players, setPlayers] = useState<Player[]>([]);
+  const [players, setPlayers] = useState<any[]>([]);
   const [categories, setCategories] = useState<Category[]>([]);
   const [selectedCategory, setSelectedCategory] = useState("");
+  const [selectedDifficulty, setSelectedDifficulty] = useState<"easy" | "medium" | "hard" | "">("");
+  const [isCategoryModalOpen, setIsCategoryModalOpen] = useState(false);
+  const [isCategoriesLoading, setIsCategoriesLoading] = useState(false);
+  const [categoriesError, setCategoriesError] = useState("");
+
   const [currentWord, setCurrentWord] = useState("");
   const [correctCount, setCorrectCount] = useState(0);
-  const [results, setResults] = useState<Result[]>([]);
-
-  const fallbackPlayers: Player[] = [
-    { id: "slot-1", username: username || "Player 1", score: 100 },
-    { id: "slot-2", username: "Player 2", score: 250 },
-    { id: "slot-3", username: "Player 3", score: 123 },
-    { id: "slot-4", username: "Player 4", score: 123 },
-  ];
-
-  const orderedPlayers = players.length
-    ? (() => {
-        const currentPlayerIndex = players.findIndex(
-          (player) => player.username?.toLowerCase() === username.toLowerCase()
-        );
-
-        if (currentPlayerIndex <= 0) {
-          return players;
-        }
-
-        const currentPlayer = players[currentPlayerIndex];
-        const remainingPlayers = players.filter((_, index) => index !== currentPlayerIndex);
-        return [currentPlayer, ...remainingPlayers];
-      })()
-    : [];
-
-  const displayPlayers: Player[] = orderedPlayers.length
-    ? [
-        ...orderedPlayers,
-        ...fallbackPlayers.filter(
-          (fallbackPlayer) =>
-            !orderedPlayers.some((player) => String(player.id) === String(fallbackPlayer.id))
-        ),
-      ]
-    : fallbackPlayers;
-
-  const selectedCategoryName =
-    categories.find((category) => String(category.id) === selectedCategory)?.name ||
-    "Category_name";
-
-  const answersLeft = Math.max(0, 10 - correctCount);
+  const [results, setResults] = useState<{ word: string; correct: boolean }[]>([]);
 
   useEffect(() => {
-    fetch(`http://localhost:5000/api/games/${sessionCode}/players`)
+    fetch(`${API_BASE_URL}/api/games/${sessionCode}/players`)
       .then((res) => res.json())
       .then((data) => setPlayers(data))
       .catch(() => console.log("Could not fetch players"));
   }, [sessionCode]);
 
-  useEffect(() => {
-    fetch("http://localhost:5000/api/categories")
-      .then((res) => res.json())
-      .then((data) => setCategories(data))
-      .catch(() => console.log("Could not fetch categories"));
-  }, []);
+  const fetchCategoriesByDifficulty = async (difficulty: "easy" | "medium" | "hard") => {
+    setSelectedDifficulty(difficulty);
+    setSelectedCategory("");
+    setIsCategoriesLoading(true);
+    setCategoriesError("");
+
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/categories?difficulty=${encodeURIComponent(difficulty)}`);
+      if (!response.ok) {
+        const errorBody = await response.text();
+        throw new Error(errorBody || "Request failed");
+      }
+
+      const data: CategoriesResponse = await response.json();
+      setCategories(data.categories ?? []);
+    } catch (error) {
+      setCategories([]);
+      setCategoriesError(
+        error instanceof Error
+          ? `Could not fetch categories for this difficulty. ${error.message}`
+          : "Could not fetch categories for this difficulty."
+      );
+    } finally {
+      setIsCategoriesLoading(false);
+    }
+  };
 
   const validateWord = (word: string) => {
     return word.length > 2;
@@ -110,102 +99,111 @@ function GameLobbyPage() {
     setCurrentWord("");
   };
 
+  const selectedCategoryName = categories.find((category) => String(category.id) === selectedCategory)?.name;
+
   return (
     <main className="page">
-      <section className="card lobby-card">
-        <div className="lobby-topbar">
-          <div>
-            <h1 className="title lobby-title">Game Lobby</h1>
-            <p className="lobby-session">
-              Room: <span>{sessionCode || "XXXX-XXXX"}</span>
-              {username ? ` | ${username}` : ""}
-            </p>
-          </div>
-          <Link className="rules-link" to="/">
-            Back
-          </Link>
-        </div>
+      <section className="card">
+        <h1 className="title">Game Lobby</h1>
 
-        <div className="player-strip">
-          {displayPlayers.slice(0, 4).map((player, index) => (
-            <article className="player-panel" key={player.id ?? index}>
-              <h2 className="player-name">{player.username || `Player ${index + 1}`}</h2>
-              <div className="player-score-box">
-                <span>{player.score ?? 0} P</span>
-              </div>
-            </article>
+        <h2>Players</h2>
+        <ul>
+          {players.map((player) => (
+            <li key={player.id}>{player.username}</li>
           ))}
-        </div>
+        </ul>
 
-        <div className="lobby-layout">
-          <aside className="history-panel">
-            <h3 className="history-title">Word guesses history</h3>
-            <ul className="history-list">
-              {results.length ? (
-                results.map((result, index) => (
-                  <li
-                    className={result.correct ? "history-item correct" : "history-item incorrect"}
-                    key={`${result.word}-${index}`}
-                  >
-                    <span>{result.word}</span>
-                    <span>{result.correct ? "Correct" : "Wrong"}</span>
-                  </li>
-                ))
-              ) : (
-                <li className="history-empty">No guesses yet</li>
-              )}
-            </ul>
-          </aside>
+        <div className="divider" aria-hidden="true"></div>
 
-          <div className="lobby-main">
-            <section className="category-panel">
-              <p className="category-display">
-                Category: <span>{selectedCategoryName}</span>
-              </p>
-              <label className="lobby-select-label" htmlFor="category-select">
-                Change category
-              </label>
-              <select
-                id="category-select"
-                className="lobby-select"
-                value={selectedCategory}
-                onChange={(e) => setSelectedCategory(e.target.value)}
-              >
-                <option value="">Select...</option>
-                {categories.map((category) => (
-                  <option key={category.id} value={category.id}>
-                    {category.name}
-                  </option>
-                ))}
-              </select>
-            </section>
+        <label className="code-label">Choose category</label>
+        <button className="primary" type="button" onClick={() => setIsCategoryModalOpen(true)}>
+          Category
+        </button>
 
-            <section className="word-panel">
-              <label className="word-label" htmlFor="word-input">
-                Type your word
-              </label>
-              <input
-                id="word-input"
-                className="word-input"
-                type="text"
-                placeholder="Write a word and press Enter"
-                value={currentWord}
-                onChange={(e) => setCurrentWord(e.target.value)}
-                onKeyDown={handleKeyDown}
-              />
-            </section>
+        {selectedDifficulty && (
+          <p>
+            Difficulty: <strong>{selectedDifficulty}</strong>
+          </p>
+        )}
 
-            <section className="score-summary">
-              <p>
-                Correct answers: <span>{correctCount}</span>
-              </p>
-              <p>
-                Answers left: <span>{answersLeft}</span>
-              </p>
-            </section>
+        {selectedCategory && (
+          <p>
+            Selected category: <strong>{selectedCategoryName ?? selectedCategory}</strong>
+          </p>
+        )}
+
+        <div className="divider" aria-hidden="true"></div>
+
+        <label className="code-label">Type your word</label>
+        <input
+          className="code-input"
+          type="text"
+          placeholder="Type a word and press Enter"
+          value={currentWord}
+          onChange={(e) => setCurrentWord(e.target.value)}
+          onKeyDown={handleKeyDown}
+        />
+
+        <h3>Results</h3>
+        <ul>
+          {results.map((result, index) => (
+            <li key={index} style={{ color: result.correct ? "green" : "red" }}>
+              {result.word} {result.correct ? "Correct" : "Incorrect"}
+            </li>
+          ))}
+        </ul>
+
+        <h3>Correct: {correctCount}</h3>
+
+        <div className="divider" aria-hidden="true"></div>
+
+        <Link to="/">Back</Link>
+      </section>
+
+      {isCategoryModalOpen && (
+        <div className="modal-backdrop" onClick={() => setIsCategoryModalOpen(false)}>
+          <div className="modal-card" onClick={(e) => e.stopPropagation()}>
+            <h2 className="title modal-title">Choose Difficulty</h2>
+
+            <div className="difficulty-grid">
+              {difficultyOptions.map((option) => (
+                <button
+                  key={option.key}
+                  className="primary"
+                  type="button"
+                  onClick={() => void fetchCategoriesByDifficulty(option.key)}
+                >
+                  {option.label} ({option.points} pts)
+                </button>
+              ))}
+            </div>
+
+            {isCategoriesLoading && <p>Loading categories...</p>}
+            {categoriesError && <p>{categoriesError}</p>}
+
+            {!isCategoriesLoading && !categoriesError && selectedDifficulty !== "" && (
+              <>
+                <label className="code-label">Choose a {selectedDifficulty} category</label>
+                <select
+                  className="code-input"
+                  value={selectedCategory}
+                  onChange={(e) => {
+                    setSelectedCategory(e.target.value);
+                    setIsCategoryModalOpen(false);
+                  }}
+                >
+                  <option value="">Select...</option>
+                  {categories.map((category) => (
+                    <option key={category.id} value={category.id}>
+                      {category.name}
+                    </option>
+                  ))}
+                </select>
+              </>
+            )}
           </div>
         </div>
-      </section>
+      )}
     </main>
   );
 }
