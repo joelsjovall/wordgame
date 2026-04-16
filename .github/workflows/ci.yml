@@ -36,8 +36,8 @@ jobs:
       - name: Build .NET solution
         run: dotnet build wordgame.sln --configuration Release --no-restore
 
-      - name: listing
-        run: dotnet list ... --vulnerable
+      - name: Check .NET package vulnerabilities
+        run: dotnet list wordgame.sln package --vulnerable
 
       - name: Run unit tests
         run: dotnet test Testing/UnitTests/WordGame.UnitTests.csproj --configuration Release --no-build
