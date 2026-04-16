@@ -131,6 +131,216 @@
   outline-offset: 3px;
 }
 
+.sketch-lobby-card {
+  width: min(1120px, 96vw);
+  padding: 32px 28px 30px;
+  text-align: left;
+}
+
+.sketch-lobby-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 18px;
+  margin-bottom: 24px;
+}
+
+.sketch-room-code {
+  font-size: 1rem;
+  color: rgba(43, 29, 23, 0.78);
+}
+
+.sketch-back-link {
+  flex-shrink: 0;
+}
+
+.sketch-player-row {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 24px;
+  margin-bottom: 24px;
+}
+
+.sketch-player-slot {
+  text-align: center;
+}
+
+.sketch-player-label {
+  margin: 0 0 10px;
+  font-family: var(--body);
+  font-size: 1.25rem;
+  font-weight: 600;
+  color: var(--ink);
+}
+
+.sketch-player-score-box {
+  width: 118px;
+  height: 82px;
+  margin: 0 auto;
+  border: 5px solid #111;
+  background: #fff;
+  display: flex;
+  align-items: flex-end;
+  justify-content: flex-start;
+  padding: 8px 10px;
+}
+
+.sketch-player-score-box span {
+  font-family: var(--body);
+  font-size: 1.05rem;
+  font-weight: 600;
+  color: var(--accent);
+}
+
+.sketch-lobby-body {
+  display: grid;
+  grid-template-columns: 220px minmax(0, 1fr);
+  gap: 28px;
+  min-height: 470px;
+}
+
+.sketch-history-column {
+  border-right: 2px solid rgba(179, 106, 74, 0.6);
+  padding-right: 18px;
+  display: flex;
+  flex-direction: column;
+}
+
+.sketch-history-title {
+  margin: 12px 0 16px;
+  font-family: var(--body);
+  font-size: 1.2rem;
+  font-weight: 600;
+  line-height: 1.35;
+  color: var(--accent);
+}
+
+.sketch-history-list {
+  list-style: none;
+  margin: 0;
+  padding: 0 8px 0 0;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  overflow-y: auto;
+  max-height: 360px;
+}
+
+.sketch-history-item {
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 10px 12px;
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.72);
+  font-size: 0.93rem;
+}
+
+.sketch-history-item.correct {
+  color: #2f6f44;
+}
+
+.sketch-history-item.incorrect {
+  color: #8b4a33;
+}
+
+.sketch-history-empty {
+  color: rgba(43, 29, 23, 0.55);
+  font-size: 0.95rem;
+}
+
+.sketch-history-list::-webkit-scrollbar {
+  width: 8px;
+}
+
+.sketch-history-list::-webkit-scrollbar-thumb {
+  background: rgba(179, 106, 74, 0.4);
+  border-radius: 999px;
+}
+
+.sketch-history-list::-webkit-scrollbar-track {
+  background: rgba(179, 106, 74, 0.08);
+  border-radius: 999px;
+}
+
+.sketch-main-column {
+  display: grid;
+  grid-template-rows: auto 1fr auto;
+  min-height: 100%;
+}
+
+.sketch-category-block {
+  display: grid;
+  justify-items: center;
+  gap: 14px;
+  padding-top: 18px;
+  text-align: center;
+}
+
+.sketch-category-line {
+  margin: 0;
+  font-family: var(--body);
+  font-size: 1.1rem;
+  font-weight: 600;
+  color: var(--accent);
+}
+
+.sketch-category-line span {
+  color: rgba(43, 29, 23, 0.72);
+}
+
+.sketch-difficulty {
+  margin: 0;
+  color: rgba(43, 29, 23, 0.62);
+}
+
+.sketch-word-block {
+  display: grid;
+  align-content: center;
+  justify-items: center;
+  gap: 26px;
+}
+
+.sketch-word-label {
+  font-family: var(--body);
+  font-size: 1.5rem;
+  font-weight: 600;
+  color: var(--ink);
+}
+
+.sketch-word-input {
+  width: min(390px, 82%);
+  border: none;
+  border-bottom: 3px solid #111;
+  background: transparent;
+  text-align: center;
+  font-size: 1.05rem;
+  padding: 8px 4px 10px;
+  color: var(--ink);
+}
+
+.sketch-word-input:focus {
+  outline: none;
+  border-bottom-color: var(--accent);
+}
+
+.sketch-word-input::placeholder {
+  color: rgba(98, 74, 63, 0.45);
+}
+
+.sketch-stats-block {
+  width: min(340px, 100%);
+  justify-self: center;
+  padding: 10px 0 0;
+}
+
+.sketch-stats-block p {
+  margin: 0 0 14px;
+  font-size: 1.05rem;
+  font-weight: 600;
+  color: var(--ink);
+}
+
 .modal-backdrop {
   position: fixed;
   inset: 0;
@@ -173,6 +383,40 @@
   }
 
   .difficulty-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .sketch-lobby-card {
+    padding: 28px 18px 26px;
+  }
+
+  .sketch-lobby-top {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .sketch-player-row {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .sketch-lobby-body {
+    grid-template-columns: 1fr;
+  }
+
+  .sketch-history-column {
+    border-right: none;
+    border-bottom: 2px solid rgba(179, 106, 74, 0.6);
+    padding-right: 0;
+    padding-bottom: 18px;
+  }
+
+  .sketch-history-list {
+    max-height: 220px;
+  }
+}
+
+@media (max-width: 420px) {
+  .sketch-player-row {
     grid-template-columns: 1fr;
   }
 }
