@@ -61,6 +61,10 @@ app.MapGet("/", () => Results.Ok(new
     message = "Det funkar boys"
 }));
 
+app.MapGet("/health", () => Results.Ok("OK"));
+
+
+
 app.Run();
 
 public partial class Program;
