@@ -54,6 +54,26 @@ jobs:
       - name: Run frontend tests
         run: npm test
         working-directory: Frontend
+
+      - name: Start backend
+        run: dotnet run --project Server/Server.csproj --urls "http://localhost:5000" &
+
+      - name: Wait for backend to be ready
+        run: |
+          for i in {1..30}; do
+            if curl -s http://localhost:5000/health > /dev/null; then
+              echo "Backend is up"
+              exit 0
+            fi
+            echo "Waiting for backend..."
+            sleep 2
+          done
+          echo "Backend did not start in time"
+          exit 1
+
+      - name: Run API tests
+        run: dotnet test Testing/ApiTests/ApiTests.csproj --configuration Release
+
   
       - name: Upload frontend build
         uses: actions/upload-artifact@v4
