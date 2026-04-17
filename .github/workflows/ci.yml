@@ -54,6 +54,10 @@ jobs:
         run: npm ci
         working-directory: Frontend
 
+      - name: Lint frontend
+        run: npm run lint -- --max-warnings=0
+        working-directory: Frontend
+
       - name: Build frontend
         run: npm run build
         working-directory: Frontend
