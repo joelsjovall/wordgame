@@ -34,6 +34,9 @@ jobs:
       - name: Restore .NET dependencies
         run: dotnet restore wordgame.sln
 
+      - name: Check .NET formatting
+        run: dotnet format wordgame.sln --verify-no-changes --no-restore
+
       - name: Build .NET solution
         run: dotnet build wordgame.sln --configuration Release --no-restore
 
@@ -52,6 +55,10 @@ jobs:
 
       - name: Install frontend dependencies
         run: npm ci
+        working-directory: Frontend
+
+      - name: Lint frontend
+        run: npm run lint -- --max-warnings=0
         working-directory: Frontend
 
       - name: Build frontend
