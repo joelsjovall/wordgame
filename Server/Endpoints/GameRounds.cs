@@ -174,6 +174,7 @@ public static class GameRoundsEndpoints
                 .Select(word => new SubmittedWord
                 {
                     ChallengeId = challenge.Id,
+                    SubmittedByUserId = request.PlayerId,
                     OriginalWord = word.OriginalWord,
                     NormalizedWord = word.NormalizedWord,
                     IsValid = word.IsValid && !word.IsDuplicate,

@@ -62,7 +62,7 @@ public class AppDbContext : DbContext
             entity.Property(x => x.Id).HasColumnName("id");
             entity.Property(x => x.GameId).HasColumnName("game_id");
             entity.Property(x => x.UserId).HasColumnName("user_id");
-            entity.Property(x => x.TurnOrder).HasColumnName("turn_order");
+            entity.Property(x => x.TurnOrder).HasColumnName("player_order");
             entity.Property(x => x.Score).HasColumnName("score");
             entity.Property(x => x.Lives).HasColumnName("lives");
             entity.Property(x => x.IsReady).HasColumnName("is_ready");
@@ -136,11 +136,11 @@ public class AppDbContext : DbContext
             entity.Property(x => x.Id).HasColumnName("id");
             entity.Property(x => x.RoundId).HasColumnName("round_id");
             entity.Property(x => x.ChallengedPlayerId).HasColumnName("challenged_player_id");
-            entity.Property(x => x.CallerPlayerId).HasColumnName("caller_player_id");
+            entity.Property(x => x.CallerPlayerId).HasColumnName("challenger_player_id");
             entity.Property(x => x.RequiredWordCount).HasColumnName("required_word_count");
             entity.Property(x => x.TimeLimitSeconds).HasColumnName("time_limit_seconds");
             entity.Property(x => x.Status).HasColumnName("status").HasMaxLength(50);
-            entity.Property(x => x.CreatedAt).HasColumnName("created_at");
+            entity.Property(x => x.CreatedAt).HasColumnName("started_at");
             entity.Property(x => x.ResolvedAt).HasColumnName("resolved_at");
 
             entity.HasOne(x => x.Round)
@@ -164,11 +164,12 @@ public class AppDbContext : DbContext
             entity.HasKey(x => x.Id);
             entity.Property(x => x.Id).HasColumnName("id");
             entity.Property(x => x.ChallengeId).HasColumnName("challenge_id");
-            entity.Property(x => x.OriginalWord).HasColumnName("original_word").HasMaxLength(255);
-            entity.Property(x => x.NormalizedWord).HasColumnName("normalized_word").HasMaxLength(255);
+            entity.Property(x => x.SubmittedByUserId).HasColumnName("submitted_by_user_id");
+            entity.Property(x => x.OriginalWord).HasColumnName("original_word").HasMaxLength(100);
+            entity.Property(x => x.NormalizedWord).HasColumnName("normalized_word").HasMaxLength(100);
             entity.Property(x => x.IsValid).HasColumnName("is_valid");
             entity.Property(x => x.MatchedCategoryWordId).HasColumnName("matched_category_word_id");
-            entity.Property(x => x.CreatedAt).HasColumnName("created_at");
+            entity.Property(x => x.CreatedAt).HasColumnName("submitted_at");
 
             entity.HasOne(x => x.Challenge)
                 .WithMany(x => x.SubmittedWords)
