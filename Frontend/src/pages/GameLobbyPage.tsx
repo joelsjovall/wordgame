@@ -1,6 +1,8 @@
 import { useEffect, useState } from "react";
 import { Link, useLocation } from "react-router-dom";
 
+
+
 type Player = {
   id: number | string;
   username: string;
@@ -34,6 +36,12 @@ function GameLobbyPage() {
   const sessionCode = queryParams.get("code") || "";
   const username = queryParams.get("user") || "";
 
+  const userId = Number(queryParams.get("userId"));
+  const roundId = Number(queryParams.get("roundId"));
+
+
+
+
   const [players, setPlayers] = useState<Player[]>([]);
   const [categories, setCategories] = useState<Category[]>([]);
   const [selectedCategory, setSelectedCategory] = useState("");
@@ -46,11 +54,16 @@ function GameLobbyPage() {
   const [results, setResults] = useState<{ word: string; correct: boolean; }[]>([]);
 
   useEffect(() => {
-    fetch(`${API_BASE_URL}/api/games/${sessionCode}/players`)
-      .then((res) => res.json())
-      .then((data) => setPlayers(data))
-      .catch(() => console.log("Could not fetch players"));
+    const interval = setInterval(() => {
+      fetch(`${API_BASE_URL}/api/games/${sessionCode}/players`)
+        .then((res) => res.json())
+        .then((data) => setPlayers(data))
+        .catch(() => console.log("Could not fetch players"));
+    }, 1000); // uppdatera varje sekund
+
+    return () => clearInterval(interval);
   }, [sessionCode]);
+
 
   const fetchCategoriesByDifficulty = async (difficulty: "easy" | "medium" | "hard") => {
     setSelectedDifficulty(difficulty);
@@ -88,20 +101,38 @@ function GameLobbyPage() {
     }
   };
 
-  const submitWord = () => {
+  const submitWord = async () => {
     const trimmed = currentWord.trim();
     if (!trimmed) return;
 
-    const isCorrect = validateWord(trimmed);
+    const res = await fetch(`${API_BASE_URL}/api/games/${roundId}/submit/${userId}`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(trimmed)
+    });
 
-    setResults((prev) => [...prev, { word: trimmed, correct: isCorrect }]);
+    if (!res.ok) {
+      console.error("Failed to submit word");
+      return;
+    }
 
-    if (isCorrect) {
-      setCorrectCount((prev) => prev + 1);
+    const result = await res.json();
+
+    setResults(prev => [
+      ...prev,
+      {
+        word: trimmed,
+        correct: result.isValid && !result.isDuplicate
+      }
+    ]);
+
+    if (result.isValid && !result.isDuplicate) {
+      setCorrectCount(prev => prev + 1);
     }
 
     setCurrentWord("");
   };
+
 
   const fallbackPlayers: Player[] = [
     { id: "slot-1", username: username || "Player 1", score: 100 },

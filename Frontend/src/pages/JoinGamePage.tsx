@@ -16,7 +16,6 @@ function JoinGamePage() {
       return;
     }
 
-    // Skicka username + sessionCode till backend
     const res = await fetch("http://localhost:5000/api/games/join", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -31,9 +30,11 @@ function JoinGamePage() {
       return;
     }
 
-    // Navigera till lobby
-    navigate(`/lobby?code=${sessionCode}&user=${username}`);
+    const data = await res.json();
+
+    navigate(`/lobby?code=${sessionCode}&userId=${data.userId}&roundId=${data.roundId}`);
   };
+
 
 
   return (
@@ -73,4 +74,4 @@ function JoinGamePage() {
   );
 }
 
-export default JoinGamePage;
+export default JoinGamePage;;
