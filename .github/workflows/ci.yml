@@ -81,7 +81,7 @@ jobs:
       - name: Run API tests
         run: dotnet test Testing/ApiTests/WordGame.ApiTests.csproj --configuration Release
       - name: Run API tests Postman
-        run: newman run "Testing/ApiTests/Postman/WordGame-api.postman_collection.json"
+        run: npx newman run "Testing/ApiTests/Postman/WordGame-api.postman_collection.json"
   
       - name: Upload frontend build
         uses: actions/upload-artifact@v4
