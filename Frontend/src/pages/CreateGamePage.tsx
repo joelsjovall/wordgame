@@ -10,6 +10,7 @@ type CreateGameResponse = {
 function CreateGamePage() {
   const [username, setUsername] = useState("");
   const [sessionCode, setSessionCode] = useState("");
+  const [isCreating, setIsCreating] = useState(false);
   const navigate = useNavigate();
 
   const handleContinue = async () => {
@@ -18,22 +19,29 @@ function CreateGamePage() {
       return;
     }
 
-    const res = await fetch(`${API_BASE_URL}/api/games/create`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        username
-      })
-    });
+    setIsCreating(true);
 
-    if (!res.ok) {
-      alert("Could not create game");
-      return;
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/games/create`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          username
+        })
+      });
+
+      if (!response.ok) {
+        throw new Error("Could not create game");
+      }
+
+      const data = (await response.json()) as CreateGameResponse;
+      setSessionCode(data.code);
+      navigate(`/lobby?code=${data.code}&user=${username}`);
+    } catch (error) {
+      alert(error instanceof Error ? error.message : "Could not create game");
+    } finally {
+      setIsCreating(false);
     }
-
-    const data = (await res.json()) as CreateGameResponse;
-    setSessionCode(data.code);
-    navigate(`/lobby?code=${data.code}&user=${username}`);
   };
 
   return (
@@ -63,8 +71,8 @@ function CreateGamePage() {
 
         <p>Share this code with your friends so they can join your game.</p>
 
-        <button className="primary" type="button" onClick={handleContinue}>
-          Continue
+        <button className="primary" type="button" onClick={() => void handleContinue()} disabled={isCreating}>
+          {isCreating ? "Creating..." : "Continue"}
         </button>
 
         <div className="divider" aria-hidden="true"></div>

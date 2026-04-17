@@ -56,7 +56,9 @@ app.UseHttpsRedirection();
 app.UseCors("FrontendDev");
 
 app.MapControllers();
+app.MapGamesEndpoints();
 app.MapCategoriesEndpoints();
+app.MapGameRoundsEndpoints();
 
 app.MapGet("/", () => Results.Ok(new
 {

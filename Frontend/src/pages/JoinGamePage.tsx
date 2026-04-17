@@ -29,7 +29,7 @@ function JoinGamePage() {
     setIsSubmitting(true);
 
     try {
-      const res = await fetch(`${API_BASE_URL}/api/games/join`, {
+      const response = await fetch(`${API_BASE_URL}/api/games/join`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -38,7 +38,7 @@ function JoinGamePage() {
         })
       });
 
-      if (!res.ok) {
+      if (!response.ok) {
         alert("Could not join game");
         return;
       }

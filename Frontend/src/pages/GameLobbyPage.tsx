@@ -45,7 +45,7 @@ const API_BASE_URL = import.meta.env.VITE_API_BASE_URL ?? "";
 const difficultyOptions: { key: "easy" | "medium" | "hard"; label: string; points: number; }[] = [
   { key: "easy", label: "Easy", points: 1 },
   { key: "medium", label: "Medium", points: 2 },
-  { key: "hard", label: "Hard", points: 3 },
+  { key: "hard", label: "Hard", points: 3 }
 ];
 
 function GameLobbyPage() {
@@ -197,6 +197,7 @@ function GameLobbyPage() {
       score: 0
     };
   });
+
   const actualPlayers = players
     .slice()
     .sort((left, right) => (left.playerOrder ?? 99) - (right.playerOrder ?? 99));

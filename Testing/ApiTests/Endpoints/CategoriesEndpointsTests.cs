@@ -115,3 +115,4 @@ public class CategoriesEndpointsTests(CustomWebApplicationFactory factory) : ICl
         public int Points { get; set; }
     }
 }
+
