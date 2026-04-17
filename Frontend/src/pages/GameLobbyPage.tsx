@@ -5,6 +5,7 @@ type Player = {
   id: number | string;
   username: string;
   score?: number;
+  turnOrder?: number;
 };
 
 type Category = {
@@ -46,10 +47,39 @@ function GameLobbyPage() {
   const [results, setResults] = useState<{ word: string; correct: boolean; }[]>([]);
 
   useEffect(() => {
-    fetch(`${API_BASE_URL}/api/games/${sessionCode}/players`)
-      .then((res) => res.json())
-      .then((data) => setPlayers(data))
-      .catch(() => console.log("Could not fetch players"));
+    if (!sessionCode) {
+      return;
+    }
+
+    let isMounted = true;
+
+    const loadPlayers = async () => {
+      try {
+        const response = await fetch(`${API_BASE_URL}/api/games/${sessionCode}/players`);
+        if (!response.ok) {
+          throw new Error("Could not fetch players");
+        }
+
+        const data = (await response.json()) as Player[];
+        if (isMounted) {
+          setPlayers(data);
+        }
+      } catch {
+        if (isMounted) {
+          console.log("Could not fetch players");
+        }
+      }
+    };
+
+    void loadPlayers();
+    const intervalId = window.setInterval(() => {
+      void loadPlayers();
+    }, 2000);
+
+    return () => {
+      isMounted = false;
+      window.clearInterval(intervalId);
+    };
   }, [sessionCode]);
 
   const fetchCategoriesByDifficulty = async (difficulty: "easy" | "medium" | "hard") => {
@@ -103,14 +133,17 @@ function GameLobbyPage() {
     setCurrentWord("");
   };
 
-  const fallbackPlayers: Player[] = [
-    { id: "slot-1", username: username || "Player 1", score: 100 },
-    { id: "slot-2", username: "Player 2", score: 250 },
-    { id: "slot-3", username: "Player 3", score: 123 },
-    { id: "slot-4", username: "Player 4", score: 123 },
-  ];
+  const displayPlayers = Array.from({ length: 4 }, (_, index) => {
+    const player = players
+      .slice()
+      .sort((left, right) => (left.turnOrder ?? 99) - (right.turnOrder ?? 99))[index];
 
-  const displayPlayers = players.length ? players.slice(0, 4) : fallbackPlayers;
+    return player ?? {
+      id: `slot-${index + 1}`,
+      username: `Player ${index + 1}`,
+      score: 0
+    };
+  });
   const selectedCategoryName = categories.find((category) => String(category.id) === selectedCategory)?.name;
   const answersLeft = Math.max(0, 10 - correctCount);
 
