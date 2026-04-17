@@ -9,7 +9,6 @@ public class GameService
   private readonly AppDbContext _db;
   private readonly IWordValidationService _validator;
   private const int MaxPlayersPerGame = 4;
-  private const int StartingLives = 3;
 
   public GameService(AppDbContext db, IWordValidationService validator)
   {
@@ -20,15 +19,7 @@ public class GameService
   public async Task<Game> CreateGameAsync(string username, CancellationToken cancellationToken = default)
   {
     var normalizedUsername = NormalizeRequiredValue(username, nameof(username));
-
-    var user = new User
-    {
-      Username = normalizedUsername,
-      CreatedAt = DateTime.UtcNow
-    };
-
-    _db.Users.Add(user);
-    await _db.SaveChangesAsync(cancellationToken);
+    var user = await GetOrCreateUserAsync(normalizedUsername, cancellationToken);
 
     var game = new Game
     {
@@ -44,9 +35,8 @@ public class GameService
     {
       GameId = game.Id,
       UserId = user.Id,
-      TurnOrder = 1,
+      PlayerOrder = 1,
       Score = 0,
-      Lives = StartingLives,
       IsReady = false
     };
 
@@ -68,6 +58,11 @@ public class GameService
       throw new KeyNotFoundException("Game not found.");
     }
 
+    if (!string.Equals(game.Status, "lobby", StringComparison.OrdinalIgnoreCase))
+    {
+      throw new InvalidOperationException("This game has already started.");
+    }
+
     if (game.Players.Count >= MaxPlayersPerGame)
     {
       throw new InvalidOperationException("This lobby is full.");
@@ -78,22 +73,14 @@ public class GameService
       throw new InvalidOperationException("That username is already taken in this lobby.");
     }
 
-    var user = new User
-    {
-      Username = normalizedUsername,
-      CreatedAt = DateTime.UtcNow
-    };
-
-    _db.Users.Add(user);
-    await _db.SaveChangesAsync(cancellationToken);
+    var user = await GetOrCreateUserAsync(normalizedUsername, cancellationToken);
 
     var gamePlayer = new GamePlayer
     {
       GameId = game.Id,
       UserId = user.Id,
-      TurnOrder = game.Players.Count + 1,
+      PlayerOrder = game.Players.Count + 1,
       Score = 0,
-      Lives = StartingLives,
       IsReady = false
     };
 
@@ -115,8 +102,61 @@ public class GameService
     }
 
     return game.Players
-        .OrderBy(player => player.TurnOrder)
+        .OrderBy(player => player.PlayerOrder)
         .ToList();
+  }
+
+  public async Task<GamePlayer> SetPlayerReadyAsync(
+      string code,
+      string username,
+      bool isReady,
+      CancellationToken cancellationToken = default)
+  {
+    var player = await GetPlayerByUsernameAsync(code, username, cancellationToken);
+
+    player.IsReady = isReady;
+    await _db.SaveChangesAsync(cancellationToken);
+
+    return player;
+  }
+
+  public async Task<Game> StartGameAsync(string code, CancellationToken cancellationToken = default)
+  {
+    var gameId = ParseGameCode(code);
+    var game = await GetGameWithPlayersAsync(gameId, cancellationToken);
+    if (game is null)
+    {
+      throw new KeyNotFoundException("Game not found.");
+    }
+
+    if (game.Players.Count < 2)
+    {
+      throw new InvalidOperationException("At least two players are required to start the game.");
+    }
+
+    if (game.Players.Any(player => !player.IsReady))
+    {
+      throw new InvalidOperationException("All players must press start game before the game can begin.");
+    }
+
+    game.Status = "in-progress";
+    await _db.SaveChangesAsync(cancellationToken);
+
+    return game;
+  }
+
+  public async Task<GamePlayer> GetPlayerByUsernameAsync(
+      string code,
+      string username,
+      CancellationToken cancellationToken = default)
+  {
+    var normalizedUsername = NormalizeRequiredValue(username, nameof(username));
+    var players = await GetPlayersAsync(code, cancellationToken);
+
+    var player = players.FirstOrDefault(existingPlayer =>
+      string.Equals(existingPlayer.User?.Username, normalizedUsername, StringComparison.OrdinalIgnoreCase));
+
+    return player ?? throw new KeyNotFoundException("Player not found in this game.");
   }
 
   public async Task<ValidatedWord> SubmitWordAsync(
@@ -174,6 +214,28 @@ public class GameService
             .ThenInclude(gamePlayer => gamePlayer.User)
         .Include(game => game.HostUser)
         .FirstOrDefaultAsync(game => game.Id == gameId, cancellationToken);
+  }
+
+  private async Task<User> GetOrCreateUserAsync(string normalizedUsername, CancellationToken cancellationToken)
+  {
+    var existingUser = await _db.Users
+        .FirstOrDefaultAsync(user => user.Username == normalizedUsername, cancellationToken);
+
+    if (existingUser is not null)
+    {
+      return existingUser;
+    }
+
+    var user = new User
+    {
+      Username = normalizedUsername,
+      CreatedAt = DateTime.UtcNow
+    };
+
+    _db.Users.Add(user);
+    await _db.SaveChangesAsync(cancellationToken);
+
+    return user;
   }
 
   private static string NormalizeRequiredValue(string value, string paramName)

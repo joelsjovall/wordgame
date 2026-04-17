@@ -1,8 +1,8 @@
 {
   "version": 2,
-  "dgSpecHash": "+zgUssSHTPI=",
+  "dgSpecHash": "m9Gyd0vTyRo=",
   "success": true,
-  "projectFilePath": "C:\\Users\\sigge\\wordgame\\wordgame\\Server\\Server.csproj",
+  "projectFilePath": "C:\\Users\\sigge\\wordgame\\wordgame\\server\\Server.csproj",
   "expectedPackageFiles": [
     "C:\\Users\\sigge\\.nuget\\packages\\microsoft.aspnetcore.openapi\\9.0.0\\microsoft.aspnetcore.openapi.9.0.0.nupkg.sha512",
     "C:\\Users\\sigge\\.nuget\\packages\\microsoft.entityframeworkcore\\9.0.0\\microsoft.entityframeworkcore.9.0.0.nupkg.sha512",
