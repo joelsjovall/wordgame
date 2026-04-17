@@ -92,7 +92,6 @@ function GameLobbyPage() {
     }
   };
 
-  const validateWord = (word: string) => word.length > 2;
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
     if (e.key === "Enter") {
