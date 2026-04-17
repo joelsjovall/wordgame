@@ -5,7 +5,7 @@ type Player = {
   id: number | string;
   username: string;
   score?: number;
-  turnOrder?: number;
+  playerOrder?: number;
 };
 
 type Category = {
@@ -18,6 +18,20 @@ type Category = {
 type CategoriesResponse = {
   count: number;
   categories: Category[];
+};
+
+type LobbyGuess = {
+  word: string;
+  correct: boolean;
+  submittedBy: string;
+  createdAt: string;
+};
+
+type LobbyStateResponse = {
+  selectedCategoryId: number | null;
+  selectedCategoryName: string;
+  selectedDifficulty: string;
+  guesses: LobbyGuess[];
 };
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL ?? "";
@@ -33,16 +47,18 @@ function GameLobbyPage() {
   const queryParams = new URLSearchParams(location.search);
 
   const sessionCode = queryParams.get("code") || "";
+  const username = queryParams.get("user") || "";
   const [players, setPlayers] = useState<Player[]>([]);
   const [categories, setCategories] = useState<Category[]>([]);
   const [selectedCategory, setSelectedCategory] = useState("");
   const [selectedDifficulty, setSelectedDifficulty] = useState<"easy" | "medium" | "hard" | "">("");
+  const [selectedCategoryName, setSelectedCategoryName] = useState("");
   const [isCategoryModalOpen, setIsCategoryModalOpen] = useState(false);
   const [isCategoriesLoading, setIsCategoriesLoading] = useState(false);
   const [categoriesError, setCategoriesError] = useState("");
   const [currentWord, setCurrentWord] = useState("");
   const [correctCount, setCorrectCount] = useState(0);
-  const [results, setResults] = useState<{ word: string; correct: boolean; }[]>([]);
+  const [results, setResults] = useState<LobbyGuess[]>([]);
 
   useEffect(() => {
     if (!sessionCode) {
@@ -51,27 +67,41 @@ function GameLobbyPage() {
 
     let isMounted = true;
 
-    const loadPlayers = async () => {
+    const loadLobbyData = async () => {
       try {
-        const response = await fetch(`${API_BASE_URL}/api/games/${sessionCode}/players`);
-        if (!response.ok) {
+        const [playersResponse, lobbyStateResponse] = await Promise.all([
+          fetch(`${API_BASE_URL}/api/games/${sessionCode}/players`),
+          fetch(`${API_BASE_URL}/api/games/${sessionCode}/lobby-state`)
+        ]);
+
+        if (!playersResponse.ok) {
           throw new Error("Could not fetch players");
         }
 
-        const data = (await response.json()) as Player[];
+        if (!lobbyStateResponse.ok) {
+          throw new Error("Could not fetch lobby state");
+        }
+
+        const playersData = (await playersResponse.json()) as Player[];
+        const lobbyStateData = (await lobbyStateResponse.json()) as LobbyStateResponse;
         if (isMounted) {
-          setPlayers(data);
+          setPlayers(playersData);
+          setSelectedCategory(lobbyStateData.selectedCategoryId ? String(lobbyStateData.selectedCategoryId) : "");
+          setSelectedCategoryName(lobbyStateData.selectedCategoryName ?? "");
+          setSelectedDifficulty((lobbyStateData.selectedDifficulty as "easy" | "medium" | "hard" | "") ?? "");
+          setResults(lobbyStateData.guesses ?? []);
+          setCorrectCount((lobbyStateData.guesses ?? []).filter((guess) => guess.correct).length);
         }
       } catch {
         if (isMounted) {
-          console.log("Could not fetch players");
+          console.log("Could not fetch lobby data");
         }
       }
     };
 
-    void loadPlayers();
+    void loadLobbyData();
     const intervalId = window.setInterval(() => {
-      void loadPlayers();
+      void loadLobbyData();
     }, 2000);
 
     return () => {
@@ -82,7 +112,6 @@ function GameLobbyPage() {
 
   const fetchCategoriesByDifficulty = async (difficulty: "easy" | "medium" | "hard") => {
     setSelectedDifficulty(difficulty);
-    setSelectedCategory("");
     setIsCategoriesLoading(true);
     setCategoriesError("");
 
@@ -121,20 +150,25 @@ function GameLobbyPage() {
     if (!trimmed) return;
 
     const isCorrect = validateWord(trimmed);
-
-    setResults((prev) => [...prev, { word: trimmed, correct: isCorrect }]);
-
-    if (isCorrect) {
-      setCorrectCount((prev) => prev + 1);
-    }
-
     setCurrentWord("");
+
+    void fetch(`${API_BASE_URL}/api/games/${sessionCode}/lobby-state/guesses`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify({
+        word: trimmed,
+        correct: isCorrect,
+        submittedBy: username
+      })
+    });
   };
 
   const displayPlayers = Array.from({ length: 4 }, (_, index) => {
     const player = players
       .slice()
-      .sort((left, right) => (left.turnOrder ?? 99) - (right.turnOrder ?? 99))[index];
+      .sort((left, right) => (left.playerOrder ?? 99) - (right.playerOrder ?? 99))[index];
 
     return player ?? {
       id: `slot-${index + 1}`,
@@ -142,7 +176,6 @@ function GameLobbyPage() {
       score: 0
     };
   });
-  const selectedCategoryName = categories.find((category) => String(category.id) === selectedCategory)?.name;
   const answersLeft = Math.max(0, 10 - correctCount);
 
   return (
@@ -174,9 +207,9 @@ function GameLobbyPage() {
                 results.map((result, index) => (
                   <li
                     className={result.correct ? "sketch-history-item correct" : "sketch-history-item incorrect"}
-                    key={`${result.word}-${index}`}
+                    key={`${result.word}-${result.createdAt}-${index}`}
                   >
-                    <span>{result.word}</span>
+                    <span>{result.submittedBy ? `${result.submittedBy}: ${result.word}` : result.word}</span>
                     <span>{result.correct ? "Correct" : "Incorrect"}</span>
                   </li>
                 ))
@@ -248,8 +281,28 @@ function GameLobbyPage() {
                   className="code-input"
                   value={selectedCategory}
                   onChange={(e) => {
-                    setSelectedCategory(e.target.value);
+                    const nextCategoryId = e.target.value;
+                    const nextCategory = categories.find((category) => String(category.id) === nextCategoryId);
+
+                    setSelectedCategory(nextCategoryId);
+                    setSelectedCategoryName(nextCategory?.name ?? "");
                     setIsCategoryModalOpen(false);
+
+                    if (!nextCategory) {
+                      return;
+                    }
+
+                    void fetch(`${API_BASE_URL}/api/games/${sessionCode}/lobby-state/category`, {
+                      method: "PUT",
+                      headers: {
+                        "Content-Type": "application/json"
+                      },
+                      body: JSON.stringify({
+                        categoryId: nextCategory.id,
+                        categoryName: nextCategory.name,
+                        difficulty: selectedDifficulty
+                      })
+                    });
                   }}
                 >
                   <option value="">Select...</option>
