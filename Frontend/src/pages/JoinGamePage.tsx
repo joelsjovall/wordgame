@@ -33,8 +33,10 @@ function JoinGamePage() {
       return;
     }
 
+    const data: { gameId: number; code: string; userId: number; username: string; } = await res.json();
+
     // Navigera till lobby
-    navigate(`/lobby?code=${sessionCode}&user=${username}`);
+    navigate(`/lobby?code=${encodeURIComponent(data.code)}&gameId=${data.gameId}&user=${encodeURIComponent(data.username)}&playerId=${data.userId}`);
   };
 
 
