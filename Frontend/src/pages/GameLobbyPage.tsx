@@ -6,6 +6,7 @@ type Player = {
   username: string;
   score?: number;
   playerOrder?: number;
+  isReady?: boolean;
 };
 
 type Category = {
@@ -21,6 +22,7 @@ type CategoriesResponse = {
 };
 
 type LobbyGuess = {
+  roundNumber: number;
   word: string;
   correct: boolean;
   submittedBy: string;
@@ -28,6 +30,10 @@ type LobbyGuess = {
 };
 
 type LobbyStateResponse = {
+  gameStatus: "lobby" | "in-progress" | string;
+  currentRoundNumber: number;
+  currentTurnPlayerOrder: number | null;
+  roundTargetWordCount: number;
   selectedCategoryId: number | null;
   selectedCategoryName: string;
   selectedDifficulty: string;
@@ -59,6 +65,12 @@ function GameLobbyPage() {
   const [currentWord, setCurrentWord] = useState("");
   const [correctCount, setCorrectCount] = useState(0);
   const [results, setResults] = useState<LobbyGuess[]>([]);
+  const [gameStatus, setGameStatus] = useState<"lobby" | "in-progress" | string>("lobby");
+  const [currentRoundNumber, setCurrentRoundNumber] = useState(0);
+  const [currentTurnPlayerOrder, setCurrentTurnPlayerOrder] = useState<number | null>(null);
+  const [roundTargetWordCount, setRoundTargetWordCount] = useState(10);
+  const [isStartingGame, setIsStartingGame] = useState(false);
+  const [lobbyMessage, setLobbyMessage] = useState("");
 
   useEffect(() => {
     if (!sessionCode) {
@@ -86,11 +98,20 @@ function GameLobbyPage() {
         const lobbyStateData = (await lobbyStateResponse.json()) as LobbyStateResponse;
         if (isMounted) {
           setPlayers(playersData);
-          setSelectedCategory(lobbyStateData.selectedCategoryId ? String(lobbyStateData.selectedCategoryId) : "");
-          setSelectedCategoryName(lobbyStateData.selectedCategoryName ?? "");
-          setSelectedDifficulty((lobbyStateData.selectedDifficulty as "easy" | "medium" | "hard" | "") ?? "");
+          setGameStatus(lobbyStateData.gameStatus ?? "lobby");
+          setCurrentRoundNumber(lobbyStateData.currentRoundNumber ?? 0);
+          setCurrentTurnPlayerOrder(lobbyStateData.currentTurnPlayerOrder ?? null);
+          setRoundTargetWordCount(lobbyStateData.roundTargetWordCount ?? 10);
+          if (!isCategoryModalOpen || lobbyStateData.selectedCategoryId) {
+            setSelectedCategory(lobbyStateData.selectedCategoryId ? String(lobbyStateData.selectedCategoryId) : "");
+            setSelectedCategoryName(lobbyStateData.selectedCategoryName ?? "");
+            setSelectedDifficulty((lobbyStateData.selectedDifficulty as "easy" | "medium" | "hard" | "") ?? "");
+          }
           setResults(lobbyStateData.guesses ?? []);
           setCorrectCount((lobbyStateData.guesses ?? []).filter((guess) => guess.correct).length);
+          if ((lobbyStateData.gameStatus ?? "lobby") === "in-progress") {
+            setLobbyMessage("");
+          }
         }
       } catch {
         if (isMounted) {
@@ -108,7 +129,7 @@ function GameLobbyPage() {
       isMounted = false;
       window.clearInterval(intervalId);
     };
-  }, [sessionCode]);
+  }, [sessionCode, isCategoryModalOpen]);
 
   const fetchCategoriesByDifficulty = async (difficulty: "easy" | "medium" | "hard") => {
     setSelectedDifficulty(difficulty);
@@ -147,7 +168,7 @@ function GameLobbyPage() {
 
   const submitWord = () => {
     const trimmed = currentWord.trim();
-    if (!trimmed) return;
+    if (!trimmed || !isCurrentUsersTurn || !selectedCategory) return;
 
     const isCorrect = validateWord(trimmed);
     setCurrentWord("");
@@ -176,7 +197,62 @@ function GameLobbyPage() {
       score: 0
     };
   });
-  const answersLeft = Math.max(0, 10 - correctCount);
+  const actualPlayers = players
+    .slice()
+    .sort((left, right) => (left.playerOrder ?? 99) - (right.playerOrder ?? 99));
+  const currentUserPlayer = actualPlayers.find((player) => player.username === username);
+  const activePlayer = actualPlayers.find((player) => player.playerOrder === currentTurnPlayerOrder);
+  const isCurrentUsersTurn =
+    gameStatus === "in-progress" &&
+    currentUserPlayer?.playerOrder !== undefined &&
+    currentUserPlayer.playerOrder === currentTurnPlayerOrder;
+  const answersLeft = Math.max(0, roundTargetWordCount - correctCount);
+  const readyPlayersCount = actualPlayers.filter((player) => player.isReady).length;
+  const canShowStartButton = gameStatus === "lobby" && actualPlayers.length >= 2;
+  const hasCurrentUserPressedStart = Boolean(currentUserPlayer?.isReady);
+  const turnStatusText =
+    gameStatus === "in-progress"
+      ? isCurrentUsersTurn
+        ? selectedCategoryName
+          ? "Your turn is live. Choose words in the selected category."
+          : "Your turn is live. Choose a category to begin the round."
+        : activePlayer
+          ? `${activePlayer.username} is playing right now.`
+          : "Waiting for the active player."
+      : actualPlayers.length >= 2
+        ? `${readyPlayersCount}/${actualPlayers.length} players pressed start game.`
+        : "The start button appears when at least 2 players are in the lobby.";
+
+  const handleStartGame = async () => {
+    if (!sessionCode || !username || hasCurrentUserPressedStart) {
+      return;
+    }
+
+    setIsStartingGame(true);
+    setLobbyMessage("");
+
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/games/${sessionCode}/players/ready`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify({
+          username
+        })
+      });
+
+      if (!response.ok) {
+        const errorBody = await response.json().catch(() => null) as { message?: string } | null;
+        setLobbyMessage(errorBody?.message ?? "Could not update start game status.");
+        return;
+      }
+
+      setLobbyMessage("You are ready. Waiting for the other players.");
+    } finally {
+      setIsStartingGame(false);
+    }
+  };
 
   return (
     <main className="page">
@@ -190,11 +266,29 @@ function GameLobbyPage() {
 
         <div className="sketch-player-row">
           {displayPlayers.map((player, index) => (
-            <article className="sketch-player-slot" key={player.id ?? index}>
+            <article
+              className={[
+                "sketch-player-slot",
+                player.playerOrder === currentTurnPlayerOrder ? "active-turn" : "",
+                player.username === username ? "current-user" : ""
+              ].filter(Boolean).join(" ")}
+              key={player.id ?? index}
+            >
               <h2 className="sketch-player-label">{player.username || `Player ${index + 1}`}</h2>
               <div className="sketch-player-score-box">
                 <span>{player.score ?? 0}p</span>
               </div>
+              {player.playerOrder ? (
+                <p className="sketch-player-status">
+                  {gameStatus === "in-progress"
+                    ? player.playerOrder === currentTurnPlayerOrder
+                      ? "Current turn"
+                      : "Waiting"
+                    : player.isReady
+                      ? "Ready"
+                      : "Not ready"}
+                </p>
+              ) : null}
             </article>
           ))}
         </div>
@@ -221,10 +315,31 @@ function GameLobbyPage() {
 
           <section className="sketch-main-column">
             <div className="sketch-category-block">
+              <div className="sketch-round-banner">
+                <p>Round: {currentRoundNumber > 0 ? currentRoundNumber : "-"}</p>
+                <p>Turn: {activePlayer?.username ?? "Waiting..."}</p>
+              </div>
+              <p className="sketch-turn-status">{turnStatusText}</p>
+              {canShowStartButton && (
+                <button
+                  className="primary"
+                  type="button"
+                  onClick={() => void handleStartGame()}
+                  disabled={isStartingGame || hasCurrentUserPressedStart}
+                >
+                  {hasCurrentUserPressedStart ? "Waiting for players..." : isStartingGame ? "Starting..." : "Start game"}
+                </button>
+              )}
+              {lobbyMessage && <p className="sketch-lobby-message">{lobbyMessage}</p>}
               <p className="sketch-category-line">
-                Category: <span>{selectedCategoryName ?? "Category_name"}</span>
+                Category: <span>{selectedCategoryName || "No category selected"}</span>
               </p>
-              <button className="primary" type="button" onClick={() => setIsCategoryModalOpen(true)}>
+              <button
+                className="primary"
+                type="button"
+                onClick={() => setIsCategoryModalOpen(true)}
+                disabled={!isCurrentUsersTurn}
+              >
                 Choose category
               </button>
               {selectedDifficulty && <p className="sketch-difficulty">Difficulty: {selectedDifficulty}</p>}
@@ -238,10 +353,11 @@ function GameLobbyPage() {
                 id="word-input"
                 className="sketch-word-input"
                 type="text"
-                placeholder="Type a word and press Enter"
+                placeholder={isCurrentUsersTurn ? "Type a word and press Enter" : "Wait for your turn"}
                 value={currentWord}
                 onChange={(e) => setCurrentWord(e.target.value)}
                 onKeyDown={handleKeyDown}
+                disabled={!isCurrentUsersTurn || !selectedCategory}
               />
             </div>
 
@@ -253,7 +369,7 @@ function GameLobbyPage() {
         </div>
       </section>
 
-      {isCategoryModalOpen && (
+      {isCategoryModalOpen && isCurrentUsersTurn && (
         <div className="modal-backdrop" onClick={() => setIsCategoryModalOpen(false)}>
           <div className="modal-card" onClick={(e) => e.stopPropagation()}>
             <h2 className="title modal-title">Choose Difficulty</h2>
@@ -300,7 +416,8 @@ function GameLobbyPage() {
                       body: JSON.stringify({
                         categoryId: nextCategory.id,
                         categoryName: nextCategory.name,
-                        difficulty: selectedDifficulty
+                        difficulty: selectedDifficulty,
+                        selectedBy: username
                       })
                     });
                   }}

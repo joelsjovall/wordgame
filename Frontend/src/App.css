@@ -55,6 +55,13 @@
   box-shadow: 0 16px 25px rgba(170, 96, 62, 0.3);
 }
 
+.primary:disabled {
+  cursor: not-allowed;
+  opacity: 0.6;
+  transform: none;
+  box-shadow: none;
+}
+
 .primary:focus-visible {
   outline: 3px solid rgba(170, 96, 62, 0.35);
   outline-offset: 3px;
@@ -163,6 +170,19 @@
 
 .sketch-player-slot {
   text-align: center;
+  border: 2px solid transparent;
+  border-radius: 18px;
+  padding: 12px 10px;
+  transition: border-color 0.2s ease, background-color 0.2s ease;
+}
+
+.sketch-player-slot.active-turn {
+  border-color: rgba(179, 106, 74, 0.8);
+  background: rgba(255, 255, 255, 0.45);
+}
+
+.sketch-player-slot.current-user {
+  background: rgba(255, 247, 240, 0.75);
 }
 
 .sketch-player-label {
@@ -190,6 +210,13 @@
   font-size: 1.05rem;
   font-weight: 600;
   color: var(--accent);
+}
+
+.sketch-player-status {
+  margin: 10px 0 0;
+  font-size: 0.92rem;
+  font-weight: 600;
+  color: rgba(43, 29, 23, 0.72);
 }
 
 .sketch-lobby-body {
@@ -277,6 +304,34 @@
   text-align: center;
 }
 
+.sketch-round-banner {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 12px 18px;
+}
+
+.sketch-round-banner p,
+.sketch-turn-status,
+.sketch-lobby-message {
+  margin: 0;
+}
+
+.sketch-round-banner p {
+  font-weight: 600;
+  color: var(--ink);
+}
+
+.sketch-turn-status {
+  font-size: 0.98rem;
+  color: rgba(43, 29, 23, 0.78);
+}
+
+.sketch-lobby-message {
+  font-size: 0.95rem;
+  color: var(--accent);
+}
+
 .sketch-category-line {
   margin: 0;
   font-family: var(--body);
@@ -326,6 +381,11 @@
 
 .sketch-word-input::placeholder {
   color: rgba(98, 74, 63, 0.45);
+}
+
+.sketch-word-input:disabled {
+  cursor: not-allowed;
+  opacity: 0.55;
 }
 
 .sketch-stats-block {
