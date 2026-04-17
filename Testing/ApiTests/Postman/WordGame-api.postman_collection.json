@@ -9,6 +9,41 @@
       "key": "baseUrl",
       "value": "http://localhost:5000",
       "type": "string"
+    },
+    {
+      "key": "createdCategoryId",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "existingEasyCategoryId",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "gameId",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "hostUserId",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "guestUserId",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "roundId",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "challengeId",
+      "value": "",
+      "type": "string"
     }
   ],
   "item": [
@@ -94,6 +129,428 @@
               "    jsonData.categories.forEach(cat => {",
               "        pm.expect(cat.difficulty.toLowerCase()).to.eql(\"easy\");",
               "    });",
+              "});",
+              "",
+              "if (jsonData.categories.length > 0) {",
+              "    pm.collectionVariables.set(\"existingEasyCategoryId\", String(jsonData.categories[0].id));",
+              "}"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Create Category",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"name\": \"Postman Category {{$timestamp}}\",\n  \"difficulty\": \"easy\",\n  \"points\": 1\n}"
+        },
+        "url": {
+          "raw": "{{baseUrl}}/api/categories",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "api",
+            "categories"
+          ]
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"Status is 201\", function () {",
+              "    pm.response.to.have.status(201);",
+              "});",
+              "",
+              "const jsonData = pm.response.json();",
+              "pm.collectionVariables.set(\"createdCategoryId\", String(jsonData.id));",
+              "",
+              "pm.test(\"Created category has expected shape\", function () {",
+              "    pm.expect(jsonData.id).to.be.a(\"number\");",
+              "    pm.expect(jsonData.name).to.be.a(\"string\");",
+              "    pm.expect(jsonData.difficulty).to.eql(\"easy\");",
+              "    pm.expect(jsonData.points).to.eql(1);",
+              "});"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Create Game",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"username\": \"PostmanHost{{$timestamp}}\"\n}"
+        },
+        "url": {
+          "raw": "{{baseUrl}}/api/games",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "api",
+            "games"
+          ]
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"Status is 201\", function () {",
+              "    pm.response.to.have.status(201);",
+              "});",
+              "",
+              "const jsonData = pm.response.json();",
+              "pm.collectionVariables.set(\"gameId\", String(jsonData.gameId));",
+              "pm.collectionVariables.set(\"hostUserId\", String(jsonData.userId));",
+              "",
+              "pm.test(\"Create game response contains ids\", function () {",
+              "    pm.expect(jsonData.gameId).to.be.a(\"number\");",
+              "    pm.expect(jsonData.code).to.eql(String(jsonData.gameId));",
+              "    pm.expect(jsonData.userId).to.be.a(\"number\");",
+              "    pm.expect(jsonData.username).to.be.a(\"string\");",
+              "});"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Join Game",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"username\": \"PostmanGuest{{$timestamp}}\",\n  \"code\": \"{{gameId}}\"\n}"
+        },
+        "url": {
+          "raw": "{{baseUrl}}/api/games/join",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "api",
+            "games",
+            "join"
+          ]
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"Status is 200\", function () {",
+              "    pm.response.to.have.status(200);",
+              "});",
+              "",
+              "const jsonData = pm.response.json();",
+              "pm.collectionVariables.set(\"guestUserId\", String(jsonData.userId));",
+              "",
+              "pm.test(\"Join game response matches game\", function () {",
+              "    pm.expect(String(jsonData.gameId)).to.eql(pm.collectionVariables.get(\"gameId\"));",
+              "    pm.expect(jsonData.userId).to.be.a(\"number\");",
+              "    pm.expect(jsonData.username).to.be.a(\"string\");",
+              "});"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Get Game Players",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "{{baseUrl}}/api/games/{{gameId}}/players",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "api",
+            "games",
+            "{{gameId}}",
+            "players"
+          ]
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"Status is 200\", function () {",
+              "    pm.response.to.have.status(200);",
+              "});",
+              "",
+              "const jsonData = pm.response.json();",
+              "",
+              "pm.test(\"Players payload contains host and guest\", function () {",
+              "    pm.expect(jsonData).to.be.an(\"array\");",
+              "    pm.expect(jsonData.length).to.be.at.least(2);",
+              "    pm.expect(jsonData[0]).to.have.property(\"playerOrder\");",
+              "    pm.expect(jsonData[0]).to.have.property(\"isReady\");",
+              "});"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Start Round",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"categoryId\": {{existingEasyCategoryId}},\n  \"currentPlayerId\": {{guestUserId}}\n}"
+        },
+        "url": {
+          "raw": "{{baseUrl}}/api/games/{{gameId}}/rounds/start",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "api",
+            "games",
+            "{{gameId}}",
+            "rounds",
+            "start"
+          ]
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"Status is 201\", function () {",
+              "    pm.response.to.have.status(201);",
+              "});",
+              "",
+              "const jsonData = pm.response.json();",
+              "pm.collectionVariables.set(\"roundId\", String(jsonData.roundId));",
+              "",
+              "pm.test(\"Round start response contains round id\", function () {",
+              "    pm.expect(String(jsonData.gameId)).to.eql(pm.collectionVariables.get(\"gameId\"));",
+              "    pm.expect(jsonData.roundId).to.be.a(\"number\");",
+              "    pm.expect(jsonData.status).to.be.a(\"string\");",
+              "});"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Get Current Round",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "{{baseUrl}}/api/games/{{gameId}}/current-round",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "api",
+            "games",
+            "{{gameId}}",
+            "current-round"
+          ]
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"Status is 200\", function () {",
+              "    pm.response.to.have.status(200);",
+              "});",
+              "",
+              "const jsonData = pm.response.json();",
+              "",
+              "pm.test(\"Current round matches started round\", function () {",
+              "    pm.expect(String(jsonData.currentRoundId)).to.eql(pm.collectionVariables.get(\"roundId\"));",
+              "});"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Create Challenge",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"challengedPlayerId\": {{guestUserId}},\n  \"callerPlayerId\": {{hostUserId}},\n  \"requiredWordCount\": 2,\n  \"timeLimitSeconds\": 60\n}"
+        },
+        "url": {
+          "raw": "{{baseUrl}}/api/rounds/{{roundId}}/challenges",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "api",
+            "rounds",
+            "{{roundId}}",
+            "challenges"
+          ]
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"Status is 201 or 409\", function () {",
+              "    pm.expect([201, 409]).to.include(pm.response.code);",
+              "});",
+              "",
+              "const jsonData = pm.response.json();",
+              "if (pm.response.code === 201) {",
+              "    pm.collectionVariables.set(\"challengeId\", String(jsonData.id));",
+              "}",
+              "",
+              "pm.test(\"Challenge response has a message or challenge fields\", function () {",
+              "    pm.expect(jsonData).to.be.an(\"object\");",
+              "});"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Submit Round Words",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"playerId\": {{guestUserId}},\n  \"words\": [\"zzzzinvalid\", \"yyyyinvalid\"]\n}"
+        },
+        "url": {
+          "raw": "{{baseUrl}}/api/rounds/{{roundId}}/submissions",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "api",
+            "rounds",
+            "{{roundId}}",
+            "submissions"
+          ]
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"Status is 200\", function () {",
+              "    pm.response.to.have.status(200);",
+              "});",
+              "",
+              "const jsonData = pm.response.json();",
+              "",
+              "pm.test(\"Submission response has round summary\", function () {",
+              "    pm.expect(String(jsonData.roundId)).to.eql(pm.collectionVariables.get(\"roundId\"));",
+              "    pm.expect(String(jsonData.playerId)).to.eql(pm.collectionVariables.get(\"guestUserId\"));",
+              "    pm.expect(jsonData.words).to.be.an(\"array\").with.lengthOf(2);",
+              "});"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Get Round Results",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "{{baseUrl}}/api/rounds/{{roundId}}/results",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "api",
+            "rounds",
+            "{{roundId}}",
+            "results"
+          ]
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"Status is 200\", function () {",
+              "    pm.response.to.have.status(200);",
+              "});",
+              "",
+              "const jsonData = pm.response.json();",
+              "",
+              "pm.test(\"Round results include category, players, and challenges\", function () {",
+              "    pm.expect(String(jsonData.roundId)).to.eql(pm.collectionVariables.get(\"roundId\"));",
+              "    pm.expect(jsonData.category).to.be.an(\"object\");",
+              "    pm.expect(jsonData.players).to.be.an(\"array\");",
+              "    pm.expect(jsonData.challenges).to.be.an(\"array\");",
               "});"
             ]
           }

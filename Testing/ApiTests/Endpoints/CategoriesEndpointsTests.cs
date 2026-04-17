@@ -89,6 +89,62 @@ public class CategoriesEndpointsTests(CustomWebApplicationFactory factory) : ICl
         Assert.Empty(payload.Categories);
     }
 
+    [Fact]
+    public async Task PostCategory_CreatesCategory_WhenPayloadIsValid()
+    {
+        await ResetAndSeedCategoriesAsync();
+
+        using var client = factory.CreateClient(new WebApplicationFactoryClientOptions
+        {
+            BaseAddress = new Uri("https://localhost")
+        });
+
+        var response = await client.PostAsJsonAsync("/api/categories", new
+        {
+            name = "Animals",
+            difficulty = " EASY ",
+            points = 3
+        });
+
+        Assert.Equal(HttpStatusCode.Created, response.StatusCode);
+
+        var payload = await response.Content.ReadFromJsonAsync<CategoryDto>();
+        Assert.NotNull(payload);
+        Assert.True(payload.Id > 0);
+        Assert.Equal("Animals", payload.Name);
+        Assert.Equal("easy", payload.Difficulty);
+        Assert.Equal(3, payload.Points);
+
+        using var scope = factory.Services.CreateScope();
+        var dbContext = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+        var savedCategory = await dbContext.Categories.FindAsync(payload.Id);
+        Assert.NotNull(savedCategory);
+        Assert.Equal("Animals", savedCategory.Name);
+        Assert.Equal("easy", savedCategory.Difficulty);
+        Assert.Equal(3, savedCategory.Points);
+    }
+
+    [Fact]
+    public async Task PostCategory_ReturnsConflict_WhenNameAndDifficultyAlreadyExist()
+    {
+        await ResetAndSeedCategoriesAsync(
+            new Category { Name = "Animals", Difficulty = "easy", Points = 1 });
+
+        using var client = factory.CreateClient(new WebApplicationFactoryClientOptions
+        {
+            BaseAddress = new Uri("https://localhost")
+        });
+
+        var response = await client.PostAsJsonAsync("/api/categories", new
+        {
+            name = " animals ",
+            difficulty = "EASY",
+            points = 5
+        });
+
+        Assert.Equal(HttpStatusCode.Conflict, response.StatusCode);
+    }
+
     private async Task ResetAndSeedCategoriesAsync(params Category[] categories)
     {
         using var scope = factory.Services.CreateScope();
