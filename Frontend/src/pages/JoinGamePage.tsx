@@ -3,52 +3,80 @@ import { Link, useLocation, useNavigate } from "react-router-dom";
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL ?? "";
 
+type JoinGameResponse = {
+  gameId: number;
+  code: string;
+  userId: number;
+  username: string;
+};
+
 function JoinGamePage() {
   const navigate = useNavigate();
   const location = useLocation();
-
-  // Hämta koden från querystring, t.ex. /join?code=123456
   const queryParams = new URLSearchParams(location.search);
-  const sessionCode = queryParams.get("code") || "";
 
+  const [sessionCode, setSessionCode] = useState(queryParams.get("code") || "");
   const [username, setUsername] = useState("");
+  const [isSubmitting, setIsSubmitting] = useState(false);
+
   const handleJoin = async () => {
-    if (!username) {
+    const normalizedCode = sessionCode.trim();
+    const normalizedUsername = username.trim();
+
+    if (!normalizedCode) {
+      alert("Please enter a game code");
+      return;
+    }
+
+    if (!normalizedUsername) {
       alert("Please enter a username");
       return;
     }
 
-    // Skicka username + sessionCode till backend
-    const res = await fetch(`${API_BASE_URL}/api/games/join`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        username: username,
-        code: sessionCode
-      })
-    });
+    setIsSubmitting(true);
 
-    if (!res.ok) {
-      alert("Could not join game");
-      return;
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/games/join`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          username: normalizedUsername,
+          code: normalizedCode,
+        }),
+      });
+
+      if (!response.ok) {
+        const errorBody = await response.text();
+        alert(errorBody || "Could not join game");
+        return;
+      }
+
+      const data = (await response.json()) as JoinGameResponse;
+      navigate(
+        `/lobby?code=${encodeURIComponent(data.code)}&gameId=${data.gameId}&user=${encodeURIComponent(data.username)}&playerId=${data.userId}`
+      );
+    } finally {
+      setIsSubmitting(false);
     }
-
-    const data: { gameId: number; code: string; userId: number; username: string; } = await res.json();
-
-    // Navigera till lobby
-    navigate(`/lobby?code=${encodeURIComponent(data.code)}&gameId=${data.gameId}&user=${encodeURIComponent(data.username)}&playerId=${data.userId}`);
   };
-
 
   return (
     <main className="page">
       <section className="card">
         <h1 className="title">Join Game</h1>
 
-        <label className="code-label">Game code</label>
-        <div className="session-code-display">
-          <h2>{sessionCode}</h2>
-        </div>
+        <label className="code-label" htmlFor="session-code">
+          Game code
+        </label>
+        <input
+          id="session-code"
+          className="code-input"
+          type="text"
+          placeholder="Enter game code"
+          autoComplete="off"
+          value={sessionCode}
+          onChange={(e) => setSessionCode(e.target.value)}
+        />
 
         <div className="divider" aria-hidden="true"></div>
 
@@ -65,8 +93,8 @@ function JoinGamePage() {
           onChange={(e) => setUsername(e.target.value)}
         />
 
-        <button className="primary" type="button" onClick={handleJoin}>
-          Join game
+        <button className="primary" type="button" onClick={() => void handleJoin()} disabled={isSubmitting}>
+          {isSubmitting ? "Joining..." : "Join game"}
         </button>
 
         <div className="divider" aria-hidden="true"></div>

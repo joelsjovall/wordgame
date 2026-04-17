@@ -5,6 +5,7 @@ type Player = {
   id: number | string;
   username: string;
   score?: number;
+  playerOrder?: number;
 };
 
 type Category = {
@@ -69,6 +70,13 @@ type StartRoundResponse = {
   roundId: number;
 };
 
+type LocalResult = {
+  word: string;
+  correct: boolean;
+  submittedBy?: string;
+  createdAt?: string;
+};
+
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL ?? "";
 
 const difficultyOptions: { key: "easy" | "medium" | "hard"; label: string; points: number; }[] = [
@@ -95,11 +103,12 @@ function GameLobbyPage() {
   const [categories, setCategories] = useState<Category[]>([]);
   const [selectedCategory, setSelectedCategory] = useState("");
   const [selectedDifficulty, setSelectedDifficulty] = useState<"easy" | "medium" | "hard" | "">("");
+  const [selectedCategoryName, setSelectedCategoryName] = useState("");
   const [isCategoryModalOpen, setIsCategoryModalOpen] = useState(false);
   const [isCategoriesLoading, setIsCategoriesLoading] = useState(false);
   const [categoriesError, setCategoriesError] = useState("");
   const [currentWord, setCurrentWord] = useState("");
-  const [results, setResults] = useState<{ word: string; correct: boolean; }[]>([]);
+  const [results, setResults] = useState<LocalResult[]>([]);
   const [submittedWords, setSubmittedWords] = useState<string[]>([]);
   const [isSubmittingRound, setIsSubmittingRound] = useState(false);
   const [submissionError, setSubmissionError] = useState("");
@@ -109,17 +118,6 @@ function GameLobbyPage() {
     Number.isFinite(roundIdFromQuery) && roundIdFromQuery > 0 ? roundIdFromQuery : 0
   );
 
-  useEffect(() => {
-    if (!Number.isFinite(resolvedGameId) || resolvedGameId <= 0) {
-      return;
-    }
-
-    fetch(`${API_BASE_URL}/api/games/${resolvedGameId}/players`)
-      .then((res) => res.json())
-      .then((data) => setPlayers(data))
-      .catch(() => console.log("Could not fetch players"));
-  }, [resolvedGameId]);
-
   const resolvedPlayerId = (() => {
     if (playerIdFromQuery > 0) return playerIdFromQuery;
     const matchedPlayer = players.find((player) => String(player.username).toLowerCase() === username.toLowerCase());
@@ -127,35 +125,99 @@ function GameLobbyPage() {
     return Number.isFinite(idAsNumber) && idAsNumber > 0 ? idAsNumber : 0;
   })();
 
-  useEffect(() => {
-    if (resolvedRoundId > 0) return;
+  const fetchPlayers = async () => {
     if (!Number.isFinite(resolvedGameId) || resolvedGameId <= 0) return;
 
-    fetch(`${API_BASE_URL}/api/games/${resolvedGameId}/current-round`)
-      .then(async (res) => {
-        if (!res.ok) {
-          throw new Error("Could not resolve current round for this game.");
+    const response = await fetch(`${API_BASE_URL}/api/games/${resolvedGameId}/players`);
+    if (!response.ok) {
+      throw new Error("Could not fetch players");
+    }
+
+    const data = (await response.json()) as Player[];
+    setPlayers(data);
+  };
+
+  const fetchCurrentRound = async () => {
+    if (!Number.isFinite(resolvedGameId) || resolvedGameId <= 0) return 0;
+
+    const response = await fetch(`${API_BASE_URL}/api/games/${resolvedGameId}/current-round`);
+    if (!response.ok) {
+      return 0;
+    }
+
+    const data = (await response.json()) as { currentRoundId?: number; };
+    const currentRoundId = Number(data.currentRoundId ?? 0);
+
+    if (Number.isFinite(currentRoundId) && currentRoundId > 0) {
+      setResolvedRoundId(currentRoundId);
+      return currentRoundId;
+    }
+
+    return 0;
+  };
+
+  const fetchRoundResults = async (roundIdOverride?: number) => {
+    const roundId = roundIdOverride ?? resolvedRoundId;
+    if (!Number.isFinite(roundId) || roundId <= 0) return;
+
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/rounds/${roundId}/results`);
+      if (!response.ok) {
+        return;
+      }
+
+      const data = (await response.json()) as RoundResultsResponse;
+      setRoundResults(data);
+
+      if (data.category.categoryName) {
+        setSelectedCategoryName(data.category.categoryName);
+      }
+
+      if (data.category.categoryId) {
+        setSelectedCategory(String(data.category.categoryId));
+      }
+    } catch {
+      // Best effort refresh only.
+    }
+  };
+
+  useEffect(() => {
+    if (!Number.isFinite(resolvedGameId) || resolvedGameId <= 0) {
+      return;
+    }
+
+    let isMounted = true;
+
+    const loadLobbyState = async () => {
+      try {
+        await fetchPlayers();
+        const currentRoundId = resolvedRoundId > 0 ? resolvedRoundId : await fetchCurrentRound();
+        if (currentRoundId > 0) {
+          await fetchRoundResults(currentRoundId);
         }
-
-        const data: { currentRoundId?: number; } = await res.json();
-        const currentRoundId = Number(data.currentRoundId ?? 0);
-
-        if (!Number.isFinite(currentRoundId) || currentRoundId <= 0) {
-          throw new Error("Game has no active round yet.");
+      } catch {
+        if (isMounted) {
+          console.log("Could not fetch lobby data");
         }
+      }
+    };
 
-        setResolvedRoundId(currentRoundId);
-      })
-      .catch(() => {
-        // Ignore here. We can still create a round when category is chosen.
-      });
+    void loadLobbyState();
+    const intervalId = window.setInterval(() => {
+      void loadLobbyState();
+    }, 2000);
+
+    return () => {
+      isMounted = false;
+      window.clearInterval(intervalId);
+    };
   }, [resolvedGameId, resolvedRoundId]);
 
   const fetchCategoriesByDifficulty = async (difficulty: "easy" | "medium" | "hard") => {
     setSelectedDifficulty(difficulty);
     setSelectedCategory("");
-    setIsCategoriesLoading(true);
     setCategoriesError("");
+    setIsCategoriesLoading(true);
 
     try {
       const response = await fetch(`${API_BASE_URL}/api/categories?difficulty=${encodeURIComponent(difficulty)}`);
@@ -164,7 +226,7 @@ function GameLobbyPage() {
         throw new Error(errorBody || "Request failed");
       }
 
-      const data: CategoriesResponse = await response.json();
+      const data = (await response.json()) as CategoriesResponse;
       setCategories(data.categories ?? []);
     } catch (error) {
       setCategories([]);
@@ -175,22 +237,6 @@ function GameLobbyPage() {
       );
     } finally {
       setIsCategoriesLoading(false);
-    }
-  };
-
-  const fetchRoundResults = async () => {
-    if (!Number.isFinite(resolvedRoundId) || resolvedRoundId <= 0) return;
-
-    try {
-      const response = await fetch(`${API_BASE_URL}/api/rounds/${resolvedRoundId}/results`);
-      if (!response.ok) {
-        return;
-      }
-
-      const data: RoundResultsResponse = await response.json();
-      setRoundResults(data);
-    } catch {
-      // Best effort refresh only.
     }
   };
 
@@ -216,7 +262,6 @@ function GameLobbyPage() {
       }),
     });
 
-    // Conflict means there is already an active challenge, which is acceptable.
     if (response.ok || response.status === 409) return;
 
     const errorBody = await response.text();
@@ -244,16 +289,19 @@ function GameLobbyPage() {
       throw new Error(errorBody || "Could not start round for selected category.");
     }
 
-    const data: StartRoundResponse = await response.json();
+    const data = (await response.json()) as StartRoundResponse;
     const startedRoundId = Number(data.roundId ?? 0);
 
     if (!Number.isFinite(startedRoundId) || startedRoundId <= 0) {
       throw new Error("Round start returned an invalid roundId.");
     }
 
+    const matchedCategory = categories.find((category) => category.id === categoryId);
     setResolvedRoundId(startedRoundId);
+    setSelectedCategory(String(categoryId));
+    setSelectedCategoryName(matchedCategory?.name ?? selectedCategoryName);
     await createChallengeForRound(startedRoundId);
-    await fetchRoundResults();
+    await fetchRoundResults(startedRoundId);
   };
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
@@ -280,7 +328,7 @@ function GameLobbyPage() {
     }
 
     if (resolvedPlayerId <= 0) {
-      setSubmissionError("Missing playerId. Add playerId in query string or ensure username matches a player.");
+      setSubmissionError("Missing playerId. Wait for the lobby player list to load and try again.");
       return;
     }
 
@@ -310,16 +358,19 @@ function GameLobbyPage() {
         throw new Error(errorBody || "Could not submit words for this round.");
       }
 
-      const data: RoundSubmissionResponse = await response.json();
+      const data = (await response.json()) as RoundSubmissionResponse;
       setSubmissionSummary(data);
       setResults(
         data.words.map((word) => ({
           word: word.originalWord,
           correct: word.isAccepted,
+          submittedBy: username,
+          createdAt: new Date().toISOString(),
         }))
       );
       setSubmittedWords([]);
-      await fetchRoundResults();
+      await fetchRoundResults(resolvedRoundId);
+      await fetchPlayers();
     } catch (error) {
       setSubmissionError(
         error instanceof Error ? error.message : "Could not submit words for this round."
@@ -329,15 +380,18 @@ function GameLobbyPage() {
     }
   };
 
-  const fallbackPlayers: Player[] = [
-    { id: "slot-1", username: username || "Player 1", score: 100 },
-    { id: "slot-2", username: "Player 2", score: 250 },
-    { id: "slot-3", username: "Player 3", score: 123 },
-    { id: "slot-4", username: "Player 4", score: 123 },
-  ];
+  const displayPlayers = Array.from({ length: 4 }, (_, index) => {
+    const player = players
+      .slice()
+      .sort((left, right) => (left.playerOrder ?? 99) - (right.playerOrder ?? 99))[index];
 
-  const displayPlayers = players.length ? players.slice(0, 4) : fallbackPlayers;
-  const selectedCategoryName = categories.find((category) => String(category.id) === selectedCategory)?.name;
+    return player ?? {
+      id: `slot-${index + 1}`,
+      username: `Player ${index + 1}`,
+      score: 0,
+    };
+  });
+
   const correctCount = submissionSummary?.validUniqueWordCount ?? results.filter((result) => result.correct).length;
   const answersLeft = Math.max(0, 10 - correctCount);
   const displayPlayersFromRoundResults = roundResults?.players.map((player) => ({
@@ -346,6 +400,7 @@ function GameLobbyPage() {
     score: player.score,
   })) ?? [];
   const topPlayers = displayPlayersFromRoundResults.length ? displayPlayersFromRoundResults.slice(0, 4) : displayPlayers;
+  const shownCategoryName = selectedCategoryName || categories.find((category) => String(category.id) === selectedCategory)?.name;
 
   return (
     <main className="page">
@@ -376,9 +431,9 @@ function GameLobbyPage() {
                 results.map((result, index) => (
                   <li
                     className={result.correct ? "sketch-history-item correct" : "sketch-history-item incorrect"}
-                    key={`${result.word}-${index}`}
+                    key={`${result.word}-${result.createdAt ?? index}-${index}`}
                   >
-                    <span>{result.word}</span>
+                    <span>{result.submittedBy ? `${result.submittedBy}: ${result.word}` : result.word}</span>
                     <span>{result.correct ? "Correct" : "Incorrect"}</span>
                   </li>
                 ))
@@ -391,7 +446,7 @@ function GameLobbyPage() {
           <section className="sketch-main-column">
             <div className="sketch-category-block">
               <p className="sketch-category-line">
-                Category: <span>{selectedCategoryName ?? "Category_name"}</span>
+                Category: <span>{shownCategoryName ?? "Category_name"}</span>
               </p>
               <button className="primary" type="button" onClick={() => setIsCategoryModalOpen(true)}>
                 Choose category

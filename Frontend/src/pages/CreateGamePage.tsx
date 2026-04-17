@@ -1,8 +1,14 @@
-import { useEffect, useState } from "react";
-import { Link } from "react-router-dom";
-import { useNavigate } from "react-router-dom";
+import { useState } from "react";
+import { Link, useNavigate } from "react-router-dom";
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL ?? "";
+
+type CreateGameResponse = {
+  gameId: number;
+  code: string;
+  userId: number;
+  username: string;
+};
 
 function CreateGamePage() {
   const [username, setUsername] = useState("");
@@ -10,25 +16,20 @@ function CreateGamePage() {
   const [isCreating, setIsCreating] = useState(false);
   const navigate = useNavigate();
 
-
-  // Generera 6-siffrig kod när sidan laddas
-  useEffect(() => {
-    const code = Math.floor(100000 + Math.random() * 900000).toString();
-    setSessionCode(code);
-  }, []);
-
   const handleContinue = async () => {
-    if (!username) {
+    const normalizedUsername = username.trim();
+    if (!normalizedUsername) {
       alert("Please enter a username");
       return;
     }
 
     setIsCreating(true);
+
     try {
       const response = await fetch(`${API_BASE_URL}/api/games`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ username }),
+        body: JSON.stringify({ username: normalizedUsername }),
       });
 
       if (!response.ok) {
@@ -36,15 +37,17 @@ function CreateGamePage() {
         throw new Error(errorBody || "Could not create game");
       }
 
-      const data: { gameId: number; code: string; userId: number; username: string; } = await response.json();
-      navigate(`/lobby?code=${encodeURIComponent(data.code)}&gameId=${data.gameId}&user=${encodeURIComponent(data.username)}&playerId=${data.userId}`);
+      const data = (await response.json()) as CreateGameResponse;
+      setSessionCode(data.code);
+      navigate(
+        `/lobby?code=${encodeURIComponent(data.code)}&gameId=${data.gameId}&user=${encodeURIComponent(data.username)}&playerId=${data.userId}`
+      );
     } catch (error) {
       alert(error instanceof Error ? error.message : "Could not create game");
     } finally {
       setIsCreating(false);
     }
   };
-
 
   return (
     <main className="page">
@@ -68,7 +71,7 @@ function CreateGamePage() {
 
         <label className="code-label">Your session code</label>
         <div className="session-code-display">
-          <h2>{sessionCode}</h2>
+          <h2>{sessionCode || "Created when you continue"}</h2>
         </div>
 
         <p>Share this code with your friends so they can join your game.</p>
