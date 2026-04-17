@@ -6,6 +6,8 @@ namespace Server.Endpoints;
 
 public static class GamesEndpoints
 {
+    private const int MaxPlayersPerGame = 4;
+
     public static RouteGroupBuilder MapGamesEndpoints(this IEndpointRouteBuilder app)
     {
         var group = app.MapGroup("/api/games");
@@ -87,6 +89,30 @@ public static class GamesEndpoints
                 return Results.NotFound(new { message = $"Game {gameId} was not found." });
             }
 
+            var existingPlayers = await dbContext.GamePlayers
+                .AsNoTracking()
+                .Where(x => x.GameId == gameId)
+                .Join(
+                    dbContext.Users.AsNoTracking(),
+                    gamePlayer => gamePlayer.UserId,
+                    user => user.Id,
+                    (gamePlayer, user) => new
+                    {
+                        gamePlayer.Id,
+                        user.Username
+                    })
+                .ToListAsync(cancellationToken);
+
+            if (existingPlayers.Count >= MaxPlayersPerGame)
+            {
+                return Results.BadRequest(new { message = "This lobby is full." });
+            }
+
+            if (existingPlayers.Any(x => string.Equals(x.Username, username, StringComparison.OrdinalIgnoreCase)))
+            {
+                return Results.BadRequest(new { message = "That username is already taken in this lobby." });
+            }
+
             var user = new User
             {
                 Username = username,
@@ -140,9 +166,11 @@ public static class GamesEndpoints
                     {
                         id = user.Id,
                         username = user.Username,
-                        score = gamePlayer.Score
+                        score = gamePlayer.Score,
+                        playerOrder = gamePlayer.TurnOrder,
+                        isReady = gamePlayer.IsReady
                     })
-                .OrderBy(x => x.id)
+                .OrderBy(x => x.playerOrder)
                 .ToListAsync(cancellationToken);
 
             return Results.Ok(players);
