@@ -6,6 +6,7 @@ on:
       - main
       - STpage
       - publish
+      - joining
   pull_request:
     branches:
       - main
