@@ -33,8 +33,6 @@ function GameLobbyPage() {
   const queryParams = new URLSearchParams(location.search);
 
   const sessionCode = queryParams.get("code") || "";
-  const username = queryParams.get("user") || "";
-
   const [players, setPlayers] = useState<Player[]>([]);
   const [categories, setCategories] = useState<Category[]>([]);
   const [selectedCategory, setSelectedCategory] = useState("");
