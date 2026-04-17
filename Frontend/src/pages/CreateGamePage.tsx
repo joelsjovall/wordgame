@@ -4,7 +4,10 @@ import { Link, useNavigate } from "react-router-dom";
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL ?? "";
 
 type CreateGameResponse = {
+  gameId: number;
   code: string;
+  userId: number;
+  username: string;
 };
 
 function CreateGamePage() {
@@ -14,7 +17,8 @@ function CreateGamePage() {
   const navigate = useNavigate();
 
   const handleContinue = async () => {
-    if (!username) {
+    const normalizedUsername = username.trim();
+    if (!normalizedUsername) {
       alert("Please enter a username");
       return;
     }
@@ -22,21 +26,22 @@ function CreateGamePage() {
     setIsCreating(true);
 
     try {
-      const response = await fetch(`${API_BASE_URL}/api/games/create`, {
+      const response = await fetch(`${API_BASE_URL}/api/games`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          username
-        })
+        body: JSON.stringify({ username: normalizedUsername }),
       });
 
       if (!response.ok) {
-        throw new Error("Could not create game");
+        const errorBody = await response.text();
+        throw new Error(errorBody || "Could not create game");
       }
 
       const data = (await response.json()) as CreateGameResponse;
       setSessionCode(data.code);
-      navigate(`/lobby?code=${data.code}&user=${username}`);
+      navigate(
+        `/lobby?code=${encodeURIComponent(data.code)}&gameId=${data.gameId}&user=${encodeURIComponent(data.username)}&playerId=${data.userId}`
+      );
     } catch (error) {
       alert(error instanceof Error ? error.message : "Could not create game");
     } finally {

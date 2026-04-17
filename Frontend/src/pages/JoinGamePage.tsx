@@ -3,6 +3,13 @@ import { Link, useLocation, useNavigate } from "react-router-dom";
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL ?? "";
 
+type JoinGameResponse = {
+  gameId: number;
+  code: string;
+  userId: number;
+  username: string;
+};
+
 function JoinGamePage() {
   const navigate = useNavigate();
   const location = useLocation();
@@ -34,16 +41,20 @@ function JoinGamePage() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           username: normalizedUsername,
-          code: normalizedCode
-        })
+          code: normalizedCode,
+        }),
       });
 
       if (!response.ok) {
-        alert("Could not join game");
+        const errorBody = await response.text();
+        alert(errorBody || "Could not join game");
         return;
       }
 
-      navigate(`/lobby?code=${normalizedCode}&user=${normalizedUsername}`);
+      const data = (await response.json()) as JoinGameResponse;
+      navigate(
+        `/lobby?code=${encodeURIComponent(data.code)}&gameId=${data.gameId}&user=${encodeURIComponent(data.username)}&playerId=${data.userId}`
+      );
     } finally {
       setIsSubmitting(false);
     }
@@ -82,7 +93,7 @@ function JoinGamePage() {
           onChange={(e) => setUsername(e.target.value)}
         />
 
-        <button className="primary" type="button" onClick={handleJoin} disabled={isSubmitting}>
+        <button className="primary" type="button" onClick={() => void handleJoin()} disabled={isSubmitting}>
           {isSubmitting ? "Joining..." : "Join game"}
         </button>
 

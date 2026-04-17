@@ -6,7 +6,6 @@ type Player = {
   username: string;
   score?: number;
   playerOrder?: number;
-  isReady?: boolean;
 };
 
 type Category = {
@@ -21,23 +20,61 @@ type CategoriesResponse = {
   categories: Category[];
 };
 
-type LobbyGuess = {
-  roundNumber: number;
-  word: string;
-  correct: boolean;
-  submittedBy: string;
-  createdAt: string;
+type SubmissionWordResult = {
+  originalWord: string;
+  normalizedWord: string;
+  isValid: boolean;
+  isDuplicate: boolean;
+  isAccepted: boolean;
 };
 
-type LobbyStateResponse = {
-  gameStatus: "lobby" | "in-progress" | string;
-  currentRoundNumber: number;
-  currentTurnPlayerOrder: number | null;
-  roundTargetWordCount: number;
-  selectedCategoryId: number | null;
-  selectedCategoryName: string;
-  selectedDifficulty: string;
-  guesses: LobbyGuess[];
+type RoundSubmissionResponse = {
+  roundId: number;
+  playerId: number;
+  challengeId: number;
+  requiredWordCount: number;
+  validUniqueWordCount: number;
+  succeeded: boolean;
+  awardedPoints: number;
+  words: SubmissionWordResult[];
+};
+
+type RoundResultPlayer = {
+  userId: number;
+  username: string;
+  score: number;
+};
+
+type RoundResultChallenge = {
+  id: number;
+  challengedPlayerId: number;
+  requiredWordCount: number;
+  status: string;
+  validUniqueWordCount: number;
+};
+
+type RoundResultsResponse = {
+  roundId: number;
+  gameId: number;
+  category: {
+    categoryId: number;
+    categoryName: string | null;
+    pointsPerWord: number | null;
+  };
+  players: RoundResultPlayer[];
+  challenges: RoundResultChallenge[];
+};
+
+type StartRoundResponse = {
+  gameId: number;
+  roundId: number;
+};
+
+type LocalResult = {
+  word: string;
+  correct: boolean;
+  submittedBy?: string;
+  createdAt?: string;
 };
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL ?? "";
@@ -45,7 +82,7 @@ const API_BASE_URL = import.meta.env.VITE_API_BASE_URL ?? "";
 const difficultyOptions: { key: "easy" | "medium" | "hard"; label: string; points: number; }[] = [
   { key: "easy", label: "Easy", points: 1 },
   { key: "medium", label: "Medium", points: 2 },
-  { key: "hard", label: "Hard", points: 3 }
+  { key: "hard", label: "Hard", points: 3 },
 ];
 
 function GameLobbyPage() {
@@ -54,6 +91,14 @@ function GameLobbyPage() {
 
   const sessionCode = queryParams.get("code") || "";
   const username = queryParams.get("user") || "";
+  const roundIdFromQuery = Number(queryParams.get("roundId") || queryParams.get("roundid") || "");
+  const gameIdFromQuery = Number(queryParams.get("gameId") || queryParams.get("gameid") || "");
+  const playerIdFromQuery = Number(queryParams.get("playerId") || "");
+  const fallbackGameIdFromCode = Number(sessionCode || "");
+  const resolvedGameId = Number.isFinite(gameIdFromQuery) && gameIdFromQuery > 0
+    ? gameIdFromQuery
+    : (Number.isFinite(fallbackGameIdFromCode) && fallbackGameIdFromCode > 0 ? fallbackGameIdFromCode : 0);
+
   const [players, setPlayers] = useState<Player[]>([]);
   const [categories, setCategories] = useState<Category[]>([]);
   const [selectedCategory, setSelectedCategory] = useState("");
@@ -63,55 +108,92 @@ function GameLobbyPage() {
   const [isCategoriesLoading, setIsCategoriesLoading] = useState(false);
   const [categoriesError, setCategoriesError] = useState("");
   const [currentWord, setCurrentWord] = useState("");
-  const [correctCount, setCorrectCount] = useState(0);
-  const [results, setResults] = useState<LobbyGuess[]>([]);
-  const [gameStatus, setGameStatus] = useState<"lobby" | "in-progress" | string>("lobby");
-  const [currentRoundNumber, setCurrentRoundNumber] = useState(0);
-  const [currentTurnPlayerOrder, setCurrentTurnPlayerOrder] = useState<number | null>(null);
-  const [roundTargetWordCount, setRoundTargetWordCount] = useState(10);
-  const [isStartingGame, setIsStartingGame] = useState(false);
-  const [lobbyMessage, setLobbyMessage] = useState("");
+  const [results, setResults] = useState<LocalResult[]>([]);
+  const [submittedWords, setSubmittedWords] = useState<string[]>([]);
+  const [isSubmittingRound, setIsSubmittingRound] = useState(false);
+  const [submissionError, setSubmissionError] = useState("");
+  const [submissionSummary, setSubmissionSummary] = useState<RoundSubmissionResponse | null>(null);
+  const [roundResults, setRoundResults] = useState<RoundResultsResponse | null>(null);
+  const [resolvedRoundId, setResolvedRoundId] = useState(
+    Number.isFinite(roundIdFromQuery) && roundIdFromQuery > 0 ? roundIdFromQuery : 0
+  );
+
+  const resolvedPlayerId = (() => {
+    if (playerIdFromQuery > 0) return playerIdFromQuery;
+    const matchedPlayer = players.find((player) => String(player.username).toLowerCase() === username.toLowerCase());
+    const idAsNumber = Number(matchedPlayer?.id ?? 0);
+    return Number.isFinite(idAsNumber) && idAsNumber > 0 ? idAsNumber : 0;
+  })();
+
+  const fetchPlayers = async () => {
+    if (!Number.isFinite(resolvedGameId) || resolvedGameId <= 0) return;
+
+    const response = await fetch(`${API_BASE_URL}/api/games/${resolvedGameId}/players`);
+    if (!response.ok) {
+      throw new Error("Could not fetch players");
+    }
+
+    const data = (await response.json()) as Player[];
+    setPlayers(data);
+  };
+
+  const fetchCurrentRound = async () => {
+    if (!Number.isFinite(resolvedGameId) || resolvedGameId <= 0) return 0;
+
+    const response = await fetch(`${API_BASE_URL}/api/games/${resolvedGameId}/current-round`);
+    if (!response.ok) {
+      return 0;
+    }
+
+    const data = (await response.json()) as { currentRoundId?: number; };
+    const currentRoundId = Number(data.currentRoundId ?? 0);
+
+    if (Number.isFinite(currentRoundId) && currentRoundId > 0) {
+      setResolvedRoundId(currentRoundId);
+      return currentRoundId;
+    }
+
+    return 0;
+  };
+
+  const fetchRoundResults = async (roundIdOverride?: number) => {
+    const roundId = roundIdOverride ?? resolvedRoundId;
+    if (!Number.isFinite(roundId) || roundId <= 0) return;
+
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/rounds/${roundId}/results`);
+      if (!response.ok) {
+        return;
+      }
+
+      const data = (await response.json()) as RoundResultsResponse;
+      setRoundResults(data);
+
+      if (data.category.categoryName) {
+        setSelectedCategoryName(data.category.categoryName);
+      }
+
+      if (data.category.categoryId) {
+        setSelectedCategory(String(data.category.categoryId));
+      }
+    } catch {
+      // Best effort refresh only.
+    }
+  };
 
   useEffect(() => {
-    if (!sessionCode) {
+    if (!Number.isFinite(resolvedGameId) || resolvedGameId <= 0) {
       return;
     }
 
     let isMounted = true;
 
-    const loadLobbyData = async () => {
+    const loadLobbyState = async () => {
       try {
-        const [playersResponse, lobbyStateResponse] = await Promise.all([
-          fetch(`${API_BASE_URL}/api/games/${sessionCode}/players`),
-          fetch(`${API_BASE_URL}/api/games/${sessionCode}/lobby-state`)
-        ]);
-
-        if (!playersResponse.ok) {
-          throw new Error("Could not fetch players");
-        }
-
-        if (!lobbyStateResponse.ok) {
-          throw new Error("Could not fetch lobby state");
-        }
-
-        const playersData = (await playersResponse.json()) as Player[];
-        const lobbyStateData = (await lobbyStateResponse.json()) as LobbyStateResponse;
-        if (isMounted) {
-          setPlayers(playersData);
-          setGameStatus(lobbyStateData.gameStatus ?? "lobby");
-          setCurrentRoundNumber(lobbyStateData.currentRoundNumber ?? 0);
-          setCurrentTurnPlayerOrder(lobbyStateData.currentTurnPlayerOrder ?? null);
-          setRoundTargetWordCount(lobbyStateData.roundTargetWordCount ?? 10);
-          if (!isCategoryModalOpen || lobbyStateData.selectedCategoryId) {
-            setSelectedCategory(lobbyStateData.selectedCategoryId ? String(lobbyStateData.selectedCategoryId) : "");
-            setSelectedCategoryName(lobbyStateData.selectedCategoryName ?? "");
-            setSelectedDifficulty((lobbyStateData.selectedDifficulty as "easy" | "medium" | "hard" | "") ?? "");
-          }
-          setResults(lobbyStateData.guesses ?? []);
-          setCorrectCount((lobbyStateData.guesses ?? []).filter((guess) => guess.correct).length);
-          if ((lobbyStateData.gameStatus ?? "lobby") === "in-progress") {
-            setLobbyMessage("");
-          }
+        await fetchPlayers();
+        const currentRoundId = resolvedRoundId > 0 ? resolvedRoundId : await fetchCurrentRound();
+        if (currentRoundId > 0) {
+          await fetchRoundResults(currentRoundId);
         }
       } catch {
         if (isMounted) {
@@ -120,21 +202,22 @@ function GameLobbyPage() {
       }
     };
 
-    void loadLobbyData();
+    void loadLobbyState();
     const intervalId = window.setInterval(() => {
-      void loadLobbyData();
+      void loadLobbyState();
     }, 2000);
 
     return () => {
       isMounted = false;
       window.clearInterval(intervalId);
     };
-  }, [sessionCode, isCategoryModalOpen]);
+  }, [resolvedGameId, resolvedRoundId]);
 
   const fetchCategoriesByDifficulty = async (difficulty: "easy" | "medium" | "hard") => {
     setSelectedDifficulty(difficulty);
-    setIsCategoriesLoading(true);
+    setSelectedCategory("");
     setCategoriesError("");
+    setIsCategoriesLoading(true);
 
     try {
       const response = await fetch(`${API_BASE_URL}/api/categories?difficulty=${encodeURIComponent(difficulty)}`);
@@ -143,7 +226,7 @@ function GameLobbyPage() {
         throw new Error(errorBody || "Request failed");
       }
 
-      const data: CategoriesResponse = await response.json();
+      const data = (await response.json()) as CategoriesResponse;
       setCategories(data.categories ?? []);
     } catch (error) {
       setCategories([]);
@@ -157,7 +240,69 @@ function GameLobbyPage() {
     }
   };
 
-  const validateWord = (word: string) => word.length > 2;
+  const createChallengeForRound = async (roundId: number) => {
+    if (!Number.isFinite(roundId) || roundId <= 0) return;
+    if (resolvedPlayerId <= 0) return;
+
+    const fallbackCallerId = Number(players.find((player) => Number(player.id) !== resolvedPlayerId)?.id ?? resolvedPlayerId);
+    const callerPlayerId = Number.isFinite(fallbackCallerId) && fallbackCallerId > 0
+      ? fallbackCallerId
+      : resolvedPlayerId;
+
+    const response = await fetch(`${API_BASE_URL}/api/rounds/${roundId}/challenges`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        challengedPlayerId: resolvedPlayerId,
+        callerPlayerId,
+        requiredWordCount: 3,
+        timeLimitSeconds: 60,
+      }),
+    });
+
+    if (response.ok || response.status === 409) return;
+
+    const errorBody = await response.text();
+    throw new Error(errorBody || "Could not create round challenge.");
+  };
+
+  const startRoundForCategory = async (categoryId: number) => {
+    if (!Number.isFinite(resolvedGameId) || resolvedGameId <= 0) {
+      throw new Error("Missing gameId. Add gameId in the lobby URL.");
+    }
+
+    const response = await fetch(`${API_BASE_URL}/api/games/${resolvedGameId}/rounds/start`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        categoryId,
+        currentPlayerId: resolvedPlayerId > 0 ? resolvedPlayerId : null,
+      }),
+    });
+
+    if (!response.ok) {
+      const errorBody = await response.text();
+      throw new Error(errorBody || "Could not start round for selected category.");
+    }
+
+    const data = (await response.json()) as StartRoundResponse;
+    const startedRoundId = Number(data.roundId ?? 0);
+
+    if (!Number.isFinite(startedRoundId) || startedRoundId <= 0) {
+      throw new Error("Round start returned an invalid roundId.");
+    }
+
+    const matchedCategory = categories.find((category) => category.id === categoryId);
+    setResolvedRoundId(startedRoundId);
+    setSelectedCategory(String(categoryId));
+    setSelectedCategoryName(matchedCategory?.name ?? selectedCategoryName);
+    await createChallengeForRound(startedRoundId);
+    await fetchRoundResults(startedRoundId);
+  };
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
     if (e.key === "Enter") {
@@ -168,22 +313,71 @@ function GameLobbyPage() {
 
   const submitWord = () => {
     const trimmed = currentWord.trim();
-    if (!trimmed || !isCurrentUsersTurn || !selectedCategory) return;
+    if (!trimmed) return;
 
-    const isCorrect = validateWord(trimmed);
+    setSubmittedWords((prev) => [...prev, trimmed]);
     setCurrentWord("");
+  };
 
-    void fetch(`${API_BASE_URL}/api/games/${sessionCode}/lobby-state/guesses`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json"
-      },
-      body: JSON.stringify({
-        word: trimmed,
-        correct: isCorrect,
-        submittedBy: username
-      })
-    });
+  const submitRoundWords = async () => {
+    setSubmissionError("");
+
+    if (!Number.isFinite(resolvedRoundId) || resolvedRoundId <= 0) {
+      setSubmissionError("Missing roundId and no active round could be resolved.");
+      return;
+    }
+
+    if (resolvedPlayerId <= 0) {
+      setSubmissionError("Missing playerId. Wait for the lobby player list to load and try again.");
+      return;
+    }
+
+    if (submittedWords.length === 0) {
+      setSubmissionError("Type at least one word before submitting.");
+      return;
+    }
+
+    setIsSubmittingRound(true);
+
+    try {
+      await createChallengeForRound(resolvedRoundId);
+
+      const response = await fetch(`${API_BASE_URL}/api/rounds/${resolvedRoundId}/submissions`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          playerId: resolvedPlayerId,
+          words: submittedWords,
+        }),
+      });
+
+      if (!response.ok) {
+        const errorBody = await response.text();
+        throw new Error(errorBody || "Could not submit words for this round.");
+      }
+
+      const data = (await response.json()) as RoundSubmissionResponse;
+      setSubmissionSummary(data);
+      setResults(
+        data.words.map((word) => ({
+          word: word.originalWord,
+          correct: word.isAccepted,
+          submittedBy: username,
+          createdAt: new Date().toISOString(),
+        }))
+      );
+      setSubmittedWords([]);
+      await fetchRoundResults(resolvedRoundId);
+      await fetchPlayers();
+    } catch (error) {
+      setSubmissionError(
+        error instanceof Error ? error.message : "Could not submit words for this round."
+      );
+    } finally {
+      setIsSubmittingRound(false);
+    }
   };
 
   const displayPlayers = Array.from({ length: 4 }, (_, index) => {
@@ -194,66 +388,19 @@ function GameLobbyPage() {
     return player ?? {
       id: `slot-${index + 1}`,
       username: `Player ${index + 1}`,
-      score: 0
+      score: 0,
     };
   });
 
-  const actualPlayers = players
-    .slice()
-    .sort((left, right) => (left.playerOrder ?? 99) - (right.playerOrder ?? 99));
-  const currentUserPlayer = actualPlayers.find((player) => player.username === username);
-  const activePlayer = actualPlayers.find((player) => player.playerOrder === currentTurnPlayerOrder);
-  const isCurrentUsersTurn =
-    gameStatus === "in-progress" &&
-    currentUserPlayer?.playerOrder !== undefined &&
-    currentUserPlayer.playerOrder === currentTurnPlayerOrder;
-  const answersLeft = Math.max(0, roundTargetWordCount - correctCount);
-  const readyPlayersCount = actualPlayers.filter((player) => player.isReady).length;
-  const canShowStartButton = gameStatus === "lobby" && actualPlayers.length >= 2;
-  const hasCurrentUserPressedStart = Boolean(currentUserPlayer?.isReady);
-  const turnStatusText =
-    gameStatus === "in-progress"
-      ? isCurrentUsersTurn
-        ? selectedCategoryName
-          ? "Your turn is live. Choose words in the selected category."
-          : "Your turn is live. Choose a category to begin the round."
-        : activePlayer
-          ? `${activePlayer.username} is playing right now.`
-          : "Waiting for the active player."
-      : actualPlayers.length >= 2
-        ? `${readyPlayersCount}/${actualPlayers.length} players pressed start game.`
-        : "The start button appears when at least 2 players are in the lobby.";
-
-  const handleStartGame = async () => {
-    if (!sessionCode || !username || hasCurrentUserPressedStart) {
-      return;
-    }
-
-    setIsStartingGame(true);
-    setLobbyMessage("");
-
-    try {
-      const response = await fetch(`${API_BASE_URL}/api/games/${sessionCode}/players/ready`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json"
-        },
-        body: JSON.stringify({
-          username
-        })
-      });
-
-      if (!response.ok) {
-        const errorBody = await response.json().catch(() => null) as { message?: string } | null;
-        setLobbyMessage(errorBody?.message ?? "Could not update start game status.");
-        return;
-      }
-
-      setLobbyMessage("You are ready. Waiting for the other players.");
-    } finally {
-      setIsStartingGame(false);
-    }
-  };
+  const correctCount = submissionSummary?.validUniqueWordCount ?? results.filter((result) => result.correct).length;
+  const answersLeft = Math.max(0, 10 - correctCount);
+  const displayPlayersFromRoundResults = roundResults?.players.map((player) => ({
+    id: player.userId,
+    username: player.username,
+    score: player.score,
+  })) ?? [];
+  const topPlayers = displayPlayersFromRoundResults.length ? displayPlayersFromRoundResults.slice(0, 4) : displayPlayers;
+  const shownCategoryName = selectedCategoryName || categories.find((category) => String(category.id) === selectedCategory)?.name;
 
   return (
     <main className="page">
@@ -266,30 +413,12 @@ function GameLobbyPage() {
         </div>
 
         <div className="sketch-player-row">
-          {displayPlayers.map((player, index) => (
-            <article
-              className={[
-                "sketch-player-slot",
-                player.playerOrder === currentTurnPlayerOrder ? "active-turn" : "",
-                player.username === username ? "current-user" : ""
-              ].filter(Boolean).join(" ")}
-              key={player.id ?? index}
-            >
+          {topPlayers.map((player, index) => (
+            <article className="sketch-player-slot" key={player.id ?? index}>
               <h2 className="sketch-player-label">{player.username || `Player ${index + 1}`}</h2>
               <div className="sketch-player-score-box">
                 <span>{player.score ?? 0}p</span>
               </div>
-              {player.playerOrder ? (
-                <p className="sketch-player-status">
-                  {gameStatus === "in-progress"
-                    ? player.playerOrder === currentTurnPlayerOrder
-                      ? "Current turn"
-                      : "Waiting"
-                    : player.isReady
-                      ? "Ready"
-                      : "Not ready"}
-                </p>
-              ) : null}
             </article>
           ))}
         </div>
@@ -302,7 +431,7 @@ function GameLobbyPage() {
                 results.map((result, index) => (
                   <li
                     className={result.correct ? "sketch-history-item correct" : "sketch-history-item incorrect"}
-                    key={`${result.word}-${result.createdAt}-${index}`}
+                    key={`${result.word}-${result.createdAt ?? index}-${index}`}
                   >
                     <span>{result.submittedBy ? `${result.submittedBy}: ${result.word}` : result.word}</span>
                     <span>{result.correct ? "Correct" : "Incorrect"}</span>
@@ -316,31 +445,10 @@ function GameLobbyPage() {
 
           <section className="sketch-main-column">
             <div className="sketch-category-block">
-              <div className="sketch-round-banner">
-                <p>Round: {currentRoundNumber > 0 ? currentRoundNumber : "-"}</p>
-                <p>Turn: {activePlayer?.username ?? "Waiting..."}</p>
-              </div>
-              <p className="sketch-turn-status">{turnStatusText}</p>
-              {canShowStartButton && (
-                <button
-                  className="primary"
-                  type="button"
-                  onClick={() => void handleStartGame()}
-                  disabled={isStartingGame || hasCurrentUserPressedStart}
-                >
-                  {hasCurrentUserPressedStart ? "Waiting for players..." : isStartingGame ? "Starting..." : "Start game"}
-                </button>
-              )}
-              {lobbyMessage && <p className="sketch-lobby-message">{lobbyMessage}</p>}
               <p className="sketch-category-line">
-                Category: <span>{selectedCategoryName || "No category selected"}</span>
+                Category: <span>{shownCategoryName ?? "Category_name"}</span>
               </p>
-              <button
-                className="primary"
-                type="button"
-                onClick={() => setIsCategoryModalOpen(true)}
-                disabled={!isCurrentUsersTurn}
-              >
+              <button className="primary" type="button" onClick={() => setIsCategoryModalOpen(true)}>
                 Choose category
               </button>
               {selectedDifficulty && <p className="sketch-difficulty">Difficulty: {selectedDifficulty}</p>}
@@ -354,23 +462,40 @@ function GameLobbyPage() {
                 id="word-input"
                 className="sketch-word-input"
                 type="text"
-                placeholder={isCurrentUsersTurn ? "Type a word and press Enter" : "Wait for your turn"}
+                placeholder="Type a word and press Enter"
                 value={currentWord}
                 onChange={(e) => setCurrentWord(e.target.value)}
                 onKeyDown={handleKeyDown}
-                disabled={!isCurrentUsersTurn || !selectedCategory}
               />
+              <button className="primary" type="button" onClick={() => void submitRoundWords()} disabled={isSubmittingRound}>
+                {isSubmittingRound ? "Submitting..." : "Submit round words"}
+              </button>
+              {submittedWords.length > 0 && (
+                <p>
+                  Pending words: {submittedWords.join(", ")}
+                </p>
+              )}
+              {submissionError && <p>{submissionError}</p>}
+              {submissionSummary && (
+                <p>
+                  {submissionSummary.succeeded ? "Challenge succeeded." : "Challenge failed."} Awarded points: {submissionSummary.awardedPoints}
+                </p>
+              )}
             </div>
 
             <div className="sketch-stats-block">
+              {resolvedRoundId > 0 ? <p>Round: {resolvedRoundId}</p> : null}
               <p>Correct answers: {correctCount}</p>
               <p>Answer left: {answersLeft}</p>
+              {roundResults?.challenges?.length ? (
+                <p>Round challenges tracked: {roundResults.challenges.length}</p>
+              ) : null}
             </div>
           </section>
         </div>
       </section>
 
-      {isCategoryModalOpen && isCurrentUsersTurn && (
+      {isCategoryModalOpen && (
         <div className="modal-backdrop" onClick={() => setIsCategoryModalOpen(false)}>
           <div className="modal-card" onClick={(e) => e.stopPropagation()}>
             <h2 className="title modal-title">Choose Difficulty</h2>
@@ -397,30 +522,23 @@ function GameLobbyPage() {
                 <select
                   className="code-input"
                   value={selectedCategory}
-                  onChange={(e) => {
-                    const nextCategoryId = e.target.value;
-                    const nextCategory = categories.find((category) => String(category.id) === nextCategoryId);
-
-                    setSelectedCategory(nextCategoryId);
-                    setSelectedCategoryName(nextCategory?.name ?? "");
+                  onChange={async (e) => {
+                    const categoryId = Number(e.target.value || "");
+                    setSelectedCategory(e.target.value);
                     setIsCategoryModalOpen(false);
 
-                    if (!nextCategory) {
+                    if (!Number.isFinite(categoryId) || categoryId <= 0) {
                       return;
                     }
 
-                    void fetch(`${API_BASE_URL}/api/games/${sessionCode}/lobby-state/category`, {
-                      method: "PUT",
-                      headers: {
-                        "Content-Type": "application/json"
-                      },
-                      body: JSON.stringify({
-                        categoryId: nextCategory.id,
-                        categoryName: nextCategory.name,
-                        difficulty: selectedDifficulty,
-                        selectedBy: username
-                      })
-                    });
+                    try {
+                      setSubmissionError("");
+                      await startRoundForCategory(categoryId);
+                    } catch (error) {
+                      setSubmissionError(
+                        error instanceof Error ? error.message : "Could not start a round for this category."
+                      );
+                    }
                   }}
                 >
                   <option value="">Select...</option>

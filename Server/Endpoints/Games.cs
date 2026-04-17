@@ -6,6 +6,8 @@ namespace Server.Endpoints;
 
 public static class GamesEndpoints
 {
+    private const int MaxPlayersPerGame = 4;
+
     public static RouteGroupBuilder MapGamesEndpoints(this IEndpointRouteBuilder app)
     {
         var group = app.MapGroup("/api/games");
@@ -44,8 +46,9 @@ public static class GamesEndpoints
             {
                 GameId = game.Id,
                 UserId = hostUser.Id,
-                PlayerOrder = 1,
+                TurnOrder = 1,
                 Score = 0,
+                Lives = 3,
                 IsReady = true
             };
 
@@ -86,6 +89,30 @@ public static class GamesEndpoints
                 return Results.NotFound(new { message = $"Game {gameId} was not found." });
             }
 
+            var existingPlayers = await dbContext.GamePlayers
+                .AsNoTracking()
+                .Where(x => x.GameId == gameId)
+                .Join(
+                    dbContext.Users.AsNoTracking(),
+                    gamePlayer => gamePlayer.UserId,
+                    user => user.Id,
+                    (gamePlayer, user) => new
+                    {
+                        gamePlayer.Id,
+                        user.Username
+                    })
+                .ToListAsync(cancellationToken);
+
+            if (existingPlayers.Count >= MaxPlayersPerGame)
+            {
+                return Results.BadRequest(new { message = "This lobby is full." });
+            }
+
+            if (existingPlayers.Any(x => string.Equals(x.Username, username, StringComparison.OrdinalIgnoreCase)))
+            {
+                return Results.BadRequest(new { message = "That username is already taken in this lobby." });
+            }
+
             var user = new User
             {
                 Username = username,
@@ -96,15 +123,16 @@ public static class GamesEndpoints
 
             var nextTurnOrder = await dbContext.GamePlayers
                 .Where(x => x.GameId == gameId)
-                .Select(x => (int?)x.PlayerOrder)
+                .Select(x => (int?)x.TurnOrder)
                 .MaxAsync(cancellationToken) ?? 0;
 
             var gamePlayer = new GamePlayer
             {
                 GameId = gameId,
                 UserId = user.Id,
-                PlayerOrder = nextTurnOrder + 1,
+                TurnOrder = nextTurnOrder + 1,
                 Score = 0,
+                Lives = 3,
                 IsReady = false
             };
             dbContext.GamePlayers.Add(gamePlayer);
@@ -139,7 +167,7 @@ public static class GamesEndpoints
                         id = user.Id,
                         username = user.Username,
                         score = gamePlayer.Score,
-                        playerOrder = gamePlayer.PlayerOrder,
+                        playerOrder = gamePlayer.TurnOrder,
                         isReady = gamePlayer.IsReady
                     })
                 .OrderBy(x => x.playerOrder)
