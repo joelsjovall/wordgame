@@ -7,8 +7,6 @@ namespace Server.Endpoints;
 
 public static class GameRoundsEndpoints
 {
-    private const int ChallengeBonusPoints = 50;
-
     public static RouteGroupBuilder MapGameRoundsEndpoints(this IEndpointRouteBuilder app)
     {
         var group = app.MapGroup("/api/rounds");
@@ -60,27 +58,32 @@ public static class GameRoundsEndpoints
                 return Results.NotFound(new { message = $"Round {roundId} was not found." });
             }
 
-            if (!string.Equals(round.Status, "bidding", StringComparison.OrdinalIgnoreCase))
+            var isBiddingRound = string.Equals(round.Status, "bidding", StringComparison.OrdinalIgnoreCase);
+            var isChallengeActiveRound = string.Equals(round.Status, "challenge_active", StringComparison.OrdinalIgnoreCase);
+
+            if (!isBiddingRound && !isChallengeActiveRound)
             {
-                return Results.Conflict(new { message = "A challenge can only be created during bidding." });
+                return Results.Conflict(new { message = "A challenge can only be created during bidding or an active challenge round." });
             }
 
-            if (!round.CurrentPlayerId.HasValue || round.CurrentPlayerId.Value != request.CallerPlayerId)
+            if (isBiddingRound &&
+                (!round.CurrentPlayerId.HasValue || round.CurrentPlayerId.Value != request.CallerPlayerId))
             {
                 return Results.Conflict(new { message = "It is not this player's turn to challenge." });
             }
 
-            if (!round.HighestBidPlayerId.HasValue || !round.HighestBidCount.HasValue)
+            if (isBiddingRound &&
+                (!round.HighestBidPlayerId.HasValue || !round.HighestBidCount.HasValue))
             {
                 return Results.Conflict(new { message = "There is no active bid to challenge yet." });
             }
 
-            if (request.ChallengedPlayerId != round.HighestBidPlayerId.Value)
+            if (isBiddingRound && request.ChallengedPlayerId != round.HighestBidPlayerId.Value)
             {
                 return Results.Conflict(new { message = "The challenged player must be the current highest bidder." });
             }
 
-            if (request.RequiredWordCount != round.HighestBidCount.Value)
+            if (isBiddingRound && request.RequiredWordCount != round.HighestBidCount.Value)
             {
                 return Results.Conflict(new { message = "The challenge word count must match the current highest bid." });
             }
@@ -245,24 +248,6 @@ public static class GameRoundsEndpoints
             if (gamePlayer is not null && awardedPoints > 0)
             {
                 gamePlayer.Score += awardedPoints;
-            }
-
-            if (succeeded && gamePlayer is not null)
-            {
-                gamePlayer.Score += ChallengeBonusPoints;
-                awardedPoints += ChallengeBonusPoints;
-            }
-            else if (!succeeded)
-            {
-                var callerPlayer = await dbContext.GamePlayers
-                    .FirstOrDefaultAsync(
-                        x => x.GameId == round.GameId && x.UserId == challenge.CallerPlayerId,
-                        cancellationToken);
-
-                if (callerPlayer is not null)
-                {
-                    callerPlayer.Score += ChallengeBonusPoints;
-                }
             }
 
             var orderedPlayers = await dbContext.GamePlayers

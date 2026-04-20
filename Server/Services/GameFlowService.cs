@@ -311,6 +311,7 @@ public class GameFlowService(
             .Select(x => (int?)x.RoundNumber)
             .MaxAsync(cancellationToken) ?? 0;
 
+        var isSinglePlayerRound = orderedPlayers.Count <= 1;
         var nextPlayerId = orderedPlayers.Count > 1
             ? orderedPlayers[(orderedPlayers.ToList().FindIndex(player => player.UserId == currentPlayerId) + 1) % orderedPlayers.Count].UserId
             : currentPlayerId;
@@ -321,8 +322,8 @@ public class GameFlowService(
             GameId = game.Id,
             CategoryId = categoryId,
             RoundNumber = latestRoundNumber + 1,
-            Status = "bidding",
-            CurrentPlayerId = nextPlayerId,
+            Status = isSinglePlayerRound ? "challenge_active" : "bidding",
+            CurrentPlayerId = isSinglePlayerRound ? currentPlayerId : nextPlayerId,
             HighestBidCount = openingBidCount,
             HighestBidPlayerId = currentPlayerId,
             CreatedAt = bidCreatedAt,
@@ -336,6 +337,19 @@ public class GameFlowService(
                 }
             }
         };
+
+        if (isSinglePlayerRound)
+        {
+            round.Challenges.Add(new Challenge
+            {
+                ChallengedPlayerId = currentPlayerId,
+                CallerPlayerId = currentPlayerId,
+                RequiredWordCount = openingBidCount,
+                TimeLimitSeconds = 60,
+                Status = "active",
+                CreatedAt = bidCreatedAt
+            });
+        }
 
         dbContext.Rounds.Add(round);
         await dbContext.SaveChangesAsync(cancellationToken);

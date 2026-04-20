@@ -48,7 +48,7 @@ public static class GamesEndpoints
                 GameId = game.Id,
                 UserId = hostUser.Id,
                 Score = 0,
-                IsReady = false
+                IsReady = true
             };
             SetTurnOrder(hostGamePlayer, 1);
             SetLives(hostGamePlayer, 3);
@@ -295,11 +295,11 @@ public static class GamesEndpoints
                 });
             }
 
-            if (request.OpeningBidCount <= 0)
+            if (request.OpeningBidCount < 0)
             {
                 return Results.ValidationProblem(new Dictionary<string, string[]>
                 {
-                    ["openingBidCount"] = ["OpeningBidCount must be greater than 0."]
+                    ["openingBidCount"] = ["OpeningBidCount must be greater than or equal to 0."]
                 });
             }
 
@@ -345,20 +345,25 @@ public static class GamesEndpoints
 
             var expectedStartingPlayerId = previousRound?.CurrentPlayerId ?? orderedPlayers[0].UserId;
             var currentPlayerId = request.CurrentPlayerId.GetValueOrDefault();
-            var categorySelectionState = gameTurnStateService.ResolveCategorySelection(gameId, orderedPlayers);
-            if (!orderedPlayers.All(player => player.IsReady))
+            var openingBidCount = request.OpeningBidCount > 0 ? request.OpeningBidCount : 1;
+
+            if (orderedPlayers.Count > 1 && !orderedPlayers.All(player => player.IsReady))
             {
                 return Results.Conflict(new { message = "All players must click start before the round can begin." });
             }
 
-            expectedStartingPlayerId = categorySelectionState.ActivePlayerId;
-
-            if (categorySelectionState.DeadlineUtc <= DateTime.UtcNow)
+            if (orderedPlayers.Count > 1)
             {
-                return Results.Conflict(new
+                var categorySelectionState = gameTurnStateService.ResolveCategorySelection(gameId, orderedPlayers);
+                expectedStartingPlayerId = categorySelectionState.ActivePlayerId;
+
+                if (categorySelectionState.DeadlineUtc <= DateTime.UtcNow)
                 {
-                    message = "Category selection timed out. Refresh game state and try again."
-                });
+                    return Results.Conflict(new
+                    {
+                        message = "Category selection timed out. Refresh game state and try again."
+                    });
+                }
             }
 
             if (currentPlayerId != expectedStartingPlayerId)
@@ -384,7 +389,7 @@ public static class GamesEndpoints
                 orderedPlayers,
                 currentPlayerId,
                 request.CategoryId,
-                request.OpeningBidCount,
+                openingBidCount,
                 cancellationToken);
 
             return Results.Created($"/api/rounds/{round.Id}", new
