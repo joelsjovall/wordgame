@@ -201,6 +201,12 @@ public class GamesEndpointsTests(CustomWebApplicationFactory factory) : IClassFi
         Assert.NotNull(startedRound);
         Assert.Equal(createdGame.GameId, startedRound.GameId);
         Assert.Equal(categoryId, startedRound.CategoryId);
+
+        using var verificationScope = factory.Services.CreateScope();
+        var verificationDbContext = verificationScope.ServiceProvider.GetRequiredService<AppDbContext>();
+        var persistedRound = await verificationDbContext.Rounds.FindAsync(startedRound.RoundId);
+        Assert.NotNull(persistedRound);
+        Assert.Equal(2, persistedRound.HighestBidCount);
     }
 
     private HttpClient CreateClient()

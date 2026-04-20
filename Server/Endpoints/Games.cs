@@ -345,8 +345,12 @@ public static class GamesEndpoints
 
             var expectedStartingPlayerId = previousRound?.CurrentPlayerId ?? orderedPlayers[0].UserId;
             var currentPlayerId = request.CurrentPlayerId.GetValueOrDefault();
-            var openingBidCount = request.OpeningBidCount > 0 ? request.OpeningBidCount : 1;
             var isLegacyDirectStart = orderedPlayers.Count > 1 && !orderedPlayers.All(player => player.IsReady);
+            var openingBidCount = request.OpeningBidCount > 0
+                ? request.OpeningBidCount
+                : isLegacyDirectStart
+                    ? 2
+                    : 1;
 
             if (isLegacyDirectStart &&
                 orderedPlayers.All(player => player.UserId != currentPlayerId))
