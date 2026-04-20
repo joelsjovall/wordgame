@@ -20,146 +20,146 @@ public class GameFlowService(
 
         try
         {
-        var game = await dbContext.Games
-            .AsNoTracking()
-            .FirstOrDefaultAsync(x => x.Id == gameId, cancellationToken);
+            var game = await dbContext.Games
+                .AsNoTracking()
+                .FirstOrDefaultAsync(x => x.Id == gameId, cancellationToken);
 
-        if (game is null)
-        {
-            return null;
-        }
+            if (game is null)
+            {
+                return null;
+            }
 
-        var players = await dbContext.GamePlayers
-            .AsNoTracking()
-            .Where(x => x.GameId == gameId)
-            .Join(
-                dbContext.Users.AsNoTracking(),
-                gamePlayer => gamePlayer.UserId,
-                user => user.Id,
-                (gamePlayer, user) => new GameStatePlayer
+            var players = await dbContext.GamePlayers
+                .AsNoTracking()
+                .Where(x => x.GameId == gameId)
+                .Join(
+                    dbContext.Users.AsNoTracking(),
+                    gamePlayer => gamePlayer.UserId,
+                    user => user.Id,
+                    (gamePlayer, user) => new GameStatePlayer
+                    {
+                        UserId = gamePlayer.UserId,
+                        Username = user.Username,
+                        TurnOrder = gamePlayer.TurnOrder,
+                        IsReady = gamePlayer.IsReady
+                    })
+                .OrderBy(x => x.TurnOrder)
+                .ToListAsync(cancellationToken);
+
+            if (players.Count == 0)
+            {
+                throw new InvalidOperationException("This game has no players.");
+            }
+
+            if (game.CurrentRoundId.HasValue)
+            {
+                await ProcessRoundTimeoutsAsync(game.CurrentRoundId.Value, cancellationToken);
+
+                var roundReadyPlayerIds = players
+                    .Where(player => player.IsReady)
+                    .Select(player => player.UserId)
+                    .ToList();
+
+                var round = await dbContext.Rounds
+                    .AsNoTracking()
+                    .Include(x => x.Bids)
+                    .Include(x => x.Challenges)
+                    .FirstOrDefaultAsync(x => x.Id == game.CurrentRoundId.Value, cancellationToken);
+
+                if (round is not null && !string.Equals(round.Status, "completed", StringComparison.OrdinalIgnoreCase))
                 {
-                    UserId = gamePlayer.UserId,
-                    Username = user.Username,
-                    TurnOrder = gamePlayer.TurnOrder,
-                    IsReady = gamePlayer.IsReady
-                })
-            .OrderBy(x => x.TurnOrder)
-            .ToListAsync(cancellationToken);
+                    var deadlineUtc = GetRoundDeadlineUtc(round);
+                    var activePlayerName = players.FirstOrDefault(player => player.UserId == round.CurrentPlayerId)?.Username;
 
-        if (players.Count == 0)
-        {
-            throw new InvalidOperationException("This game has no players.");
-        }
+                    return new GameStateSnapshot
+                    {
+                        GameId = gameId,
+                        CurrentRoundId = round.Id,
+                        Phase = round.Status,
+                        ActivePlayerId = round.CurrentPlayerId,
+                        ActivePlayerName = activePlayerName,
+                        DeadlineUtc = deadlineUtc,
+                        SecondsRemaining = GetSecondsRemaining(deadlineUtc),
+                        ReadyPlayerIds = roundReadyPlayerIds,
+                        ReadyPlayersCount = roundReadyPlayerIds.Count,
+                        TotalPlayers = players.Count,
+                        AllPlayersReady = roundReadyPlayerIds.Count == players.Count
+                    };
+                }
+            }
 
-        if (game.CurrentRoundId.HasValue)
-        {
-            await ProcessRoundTimeoutsAsync(game.CurrentRoundId.Value, cancellationToken);
-
-            var roundReadyPlayerIds = players
+            var readyPlayerIds = players
                 .Where(player => player.IsReady)
                 .Select(player => player.UserId)
                 .ToList();
+            var allPlayersReady = readyPlayerIds.Count == players.Count;
+            var starterPlayerId = await GetNextRoundStarterPlayerIdAsync(gameId, players, cancellationToken);
+            var starterPlayerName = players.FirstOrDefault(player => player.UserId == starterPlayerId)?.Username;
 
-            var round = await dbContext.Rounds
-                .AsNoTracking()
-                .Include(x => x.Bids)
-                .Include(x => x.Challenges)
-                .FirstOrDefaultAsync(x => x.Id == game.CurrentRoundId.Value, cancellationToken);
-
-            if (round is not null && !string.Equals(round.Status, "completed", StringComparison.OrdinalIgnoreCase))
+            if (!allPlayersReady)
             {
-                var deadlineUtc = GetRoundDeadlineUtc(round);
-                var activePlayerName = players.FirstOrDefault(player => player.UserId == round.CurrentPlayerId)?.Username;
+                gameTurnStateService.Clear(gameId);
 
                 return new GameStateSnapshot
                 {
                     GameId = gameId,
-                    CurrentRoundId = round.Id,
-                    Phase = round.Status,
-                    ActivePlayerId = round.CurrentPlayerId,
-                    ActivePlayerName = activePlayerName,
-                    DeadlineUtc = deadlineUtc,
-                    SecondsRemaining = GetSecondsRemaining(deadlineUtc),
-                    ReadyPlayerIds = roundReadyPlayerIds,
-                    ReadyPlayersCount = roundReadyPlayerIds.Count,
+                    CurrentRoundId = game.CurrentRoundId,
+                    Phase = "round_start_pending",
+                    ActivePlayerId = starterPlayerId,
+                    ActivePlayerName = starterPlayerName,
+                    ReadyPlayerIds = readyPlayerIds,
+                    ReadyPlayersCount = readyPlayerIds.Count,
                     TotalPlayers = players.Count,
-                    AllPlayersReady = roundReadyPlayerIds.Count == players.Count
+                    AllPlayersReady = false
                 };
             }
-        }
 
-        var readyPlayerIds = players
-            .Where(player => player.IsReady)
-            .Select(player => player.UserId)
-            .ToList();
-        var allPlayersReady = readyPlayerIds.Count == players.Count;
-        var starterPlayerId = await GetNextRoundStarterPlayerIdAsync(gameId, players, cancellationToken);
-        var starterPlayerName = players.FirstOrDefault(player => player.UserId == starterPlayerId)?.Username;
+            var orderedPlayers = players
+                .Select(player => new GamePlayer
+                {
+                    UserId = player.UserId,
+                    TurnOrder = player.TurnOrder
+                })
+                .ToList();
 
-        if (!allPlayersReady)
-        {
-            gameTurnStateService.Clear(gameId);
+            var categorySelection = gameTurnStateService.ResolveCategorySelection(gameId, orderedPlayers);
+            if (categorySelection.DeadlineUtc <= DateTime.UtcNow)
+            {
+                var timedOutRound = await StartTimedOutCategoryRoundAsync(game, orderedPlayers, categorySelection.ActivePlayerId, cancellationToken);
+                var timedOutActivePlayerName = players.FirstOrDefault(player => player.UserId == timedOutRound.CurrentPlayerId)?.Username;
+
+                return new GameStateSnapshot
+                {
+                    GameId = gameId,
+                    CurrentRoundId = timedOutRound.Id,
+                    Phase = timedOutRound.Status,
+                    ActivePlayerId = timedOutRound.CurrentPlayerId,
+                    ActivePlayerName = timedOutActivePlayerName,
+                    DeadlineUtc = GetRoundDeadlineUtc(timedOutRound),
+                    SecondsRemaining = GetSecondsRemaining(GetRoundDeadlineUtc(timedOutRound)),
+                    ReadyPlayerIds = readyPlayerIds,
+                    ReadyPlayersCount = readyPlayerIds.Count,
+                    TotalPlayers = players.Count,
+                    AllPlayersReady = true
+                };
+            }
+
+            var categoryPlayerName = players.FirstOrDefault(player => player.UserId == categorySelection.ActivePlayerId)?.Username;
 
             return new GameStateSnapshot
             {
                 GameId = gameId,
                 CurrentRoundId = game.CurrentRoundId,
-                Phase = "round_start_pending",
-                ActivePlayerId = starterPlayerId,
-                ActivePlayerName = starterPlayerName,
-                ReadyPlayerIds = readyPlayerIds,
-                ReadyPlayersCount = readyPlayerIds.Count,
-                TotalPlayers = players.Count,
-                AllPlayersReady = false
-            };
-        }
-
-        var orderedPlayers = players
-            .Select(player => new GamePlayer
-            {
-                UserId = player.UserId,
-                TurnOrder = player.TurnOrder
-            })
-            .ToList();
-
-        var categorySelection = gameTurnStateService.ResolveCategorySelection(gameId, orderedPlayers);
-        if (categorySelection.DeadlineUtc <= DateTime.UtcNow)
-        {
-            var timedOutRound = await StartTimedOutCategoryRoundAsync(game, orderedPlayers, categorySelection.ActivePlayerId, cancellationToken);
-            var timedOutActivePlayerName = players.FirstOrDefault(player => player.UserId == timedOutRound.CurrentPlayerId)?.Username;
-
-            return new GameStateSnapshot
-            {
-                GameId = gameId,
-                CurrentRoundId = timedOutRound.Id,
-                Phase = timedOutRound.Status,
-                ActivePlayerId = timedOutRound.CurrentPlayerId,
-                ActivePlayerName = timedOutActivePlayerName,
-                DeadlineUtc = GetRoundDeadlineUtc(timedOutRound),
-                SecondsRemaining = GetSecondsRemaining(GetRoundDeadlineUtc(timedOutRound)),
+                Phase = "category_selection",
+                ActivePlayerId = categorySelection.ActivePlayerId,
+                ActivePlayerName = categoryPlayerName,
+                DeadlineUtc = categorySelection.DeadlineUtc,
+                SecondsRemaining = GetSecondsRemaining(categorySelection.DeadlineUtc),
                 ReadyPlayerIds = readyPlayerIds,
                 ReadyPlayersCount = readyPlayerIds.Count,
                 TotalPlayers = players.Count,
                 AllPlayersReady = true
             };
-        }
-
-        var categoryPlayerName = players.FirstOrDefault(player => player.UserId == categorySelection.ActivePlayerId)?.Username;
-
-        return new GameStateSnapshot
-        {
-            GameId = gameId,
-            CurrentRoundId = game.CurrentRoundId,
-            Phase = "category_selection",
-            ActivePlayerId = categorySelection.ActivePlayerId,
-            ActivePlayerName = categoryPlayerName,
-            DeadlineUtc = categorySelection.DeadlineUtc,
-            SecondsRemaining = GetSecondsRemaining(categorySelection.DeadlineUtc),
-            ReadyPlayerIds = readyPlayerIds,
-            ReadyPlayersCount = readyPlayerIds.Count,
-            TotalPlayers = players.Count,
-            AllPlayersReady = true
-        };
         }
         finally
         {
@@ -174,118 +174,118 @@ public class GameFlowService(
 
         try
         {
-        var round = await dbContext.Rounds
-            .Include(x => x.Category)
-            .Include(x => x.Bids)
-            .Include(x => x.Challenges)
-            .FirstOrDefaultAsync(x => x.Id == roundId, cancellationToken);
+            var round = await dbContext.Rounds
+                .Include(x => x.Category)
+                .Include(x => x.Bids)
+                .Include(x => x.Challenges)
+                .FirstOrDefaultAsync(x => x.Id == roundId, cancellationToken);
 
-        if (round is null)
-        {
-            return null;
-        }
-
-        if (string.Equals(round.Status, "bidding", StringComparison.OrdinalIgnoreCase))
-        {
-            var biddingDeadlineUtc = GetRoundDeadlineUtc(round);
-            if (biddingDeadlineUtc <= DateTime.UtcNow &&
-                round.CurrentPlayerId.HasValue &&
-                round.HighestBidPlayerId.HasValue &&
-                round.HighestBidCount.HasValue &&
-                !round.Challenges.Any(challenge => challenge.ResolvedAt == null))
+            if (round is null)
             {
-                round.Challenges.Add(new Challenge
-                {
-                    RoundId = round.Id,
-                    ChallengedPlayerId = round.HighestBidPlayerId.Value,
-                    CallerPlayerId = round.CurrentPlayerId.Value,
-                    RequiredWordCount = round.HighestBidCount.Value,
-                    TimeLimitSeconds = 60,
-                    Status = "active",
-                    CreatedAt = DateTime.UtcNow
-                });
-
-                round.Status = "challenge_active";
-                round.CurrentPlayerId = round.HighestBidPlayerId.Value;
-
-                await dbContext.SaveChangesAsync(cancellationToken);
+                return null;
             }
-        }
 
-        if (string.Equals(round.Status, "challenge_active", StringComparison.OrdinalIgnoreCase))
-        {
-            var activeChallenge = round.Challenges
-                .Where(challenge => challenge.ResolvedAt == null)
-                .OrderByDescending(challenge => challenge.CreatedAt)
-                .FirstOrDefault();
-
-            if (activeChallenge is not null &&
-                activeChallenge.CreatedAt.AddSeconds(activeChallenge.TimeLimitSeconds) <= DateTime.UtcNow)
+            if (string.Equals(round.Status, "bidding", StringComparison.OrdinalIgnoreCase))
             {
-                var validUniqueWordCount = await dbContext.SubmittedWords
-                    .AsNoTracking()
-                    .Where(word => word.ChallengeId == activeChallenge.Id && word.IsValid)
-                    .Select(word => word.NormalizedWord)
-                    .Distinct()
-                    .CountAsync(cancellationToken);
-
-                var succeeded = validUniqueWordCount >= activeChallenge.RequiredWordCount;
-                activeChallenge.Status = "failed";
-                activeChallenge.ResolvedAt = DateTime.UtcNow;
-
-                var pointsPerWord = round.Category?.Points ?? 1;
-                var awardedWordPoints = validUniqueWordCount * pointsPerWord;
-
-                var challengedPlayer = await dbContext.GamePlayers
-                    .FirstOrDefaultAsync(
-                        x => x.GameId == round.GameId && x.UserId == activeChallenge.ChallengedPlayerId,
-                        cancellationToken);
-
-                if (challengedPlayer is not null && awardedWordPoints > 0)
+                var biddingDeadlineUtc = GetRoundDeadlineUtc(round);
+                if (biddingDeadlineUtc <= DateTime.UtcNow &&
+                    round.CurrentPlayerId.HasValue &&
+                    round.HighestBidPlayerId.HasValue &&
+                    round.HighestBidCount.HasValue &&
+                    !round.Challenges.Any(challenge => challenge.ResolvedAt == null))
                 {
-                    challengedPlayer.Score += awardedWordPoints;
-                }
-
-                if (succeeded)
-                {
-                    activeChallenge.Status = "succeeded";
-
-                    if (challengedPlayer is not null)
+                    round.Challenges.Add(new Challenge
                     {
-                        challengedPlayer.Score += ChallengeBonusPoints;
-                    }
-                }
-                else
-                {
-                    activeChallenge.Status = "failed";
+                        RoundId = round.Id,
+                        ChallengedPlayerId = round.HighestBidPlayerId.Value,
+                        CallerPlayerId = round.CurrentPlayerId.Value,
+                        RequiredWordCount = round.HighestBidCount.Value,
+                        TimeLimitSeconds = 60,
+                        Status = "active",
+                        CreatedAt = DateTime.UtcNow
+                    });
 
-                    var callerPlayer = await dbContext.GamePlayers
+                    round.Status = "challenge_active";
+                    round.CurrentPlayerId = round.HighestBidPlayerId.Value;
+
+                    await dbContext.SaveChangesAsync(cancellationToken);
+                }
+            }
+
+            if (string.Equals(round.Status, "challenge_active", StringComparison.OrdinalIgnoreCase))
+            {
+                var activeChallenge = round.Challenges
+                    .Where(challenge => challenge.ResolvedAt == null)
+                    .OrderByDescending(challenge => challenge.CreatedAt)
+                    .FirstOrDefault();
+
+                if (activeChallenge is not null &&
+                    activeChallenge.CreatedAt.AddSeconds(activeChallenge.TimeLimitSeconds) <= DateTime.UtcNow)
+                {
+                    var validUniqueWordCount = await dbContext.SubmittedWords
+                        .AsNoTracking()
+                        .Where(word => word.ChallengeId == activeChallenge.Id && word.IsValid)
+                        .Select(word => word.NormalizedWord)
+                        .Distinct()
+                        .CountAsync(cancellationToken);
+
+                    var succeeded = validUniqueWordCount >= activeChallenge.RequiredWordCount;
+                    activeChallenge.Status = "failed";
+                    activeChallenge.ResolvedAt = DateTime.UtcNow;
+
+                    var pointsPerWord = round.Category?.Points ?? 1;
+                    var awardedWordPoints = validUniqueWordCount * pointsPerWord;
+
+                    var challengedPlayer = await dbContext.GamePlayers
                         .FirstOrDefaultAsync(
-                            x => x.GameId == round.GameId && x.UserId == activeChallenge.CallerPlayerId,
+                            x => x.GameId == round.GameId && x.UserId == activeChallenge.ChallengedPlayerId,
                             cancellationToken);
 
-                    if (callerPlayer is not null)
+                    if (challengedPlayer is not null && awardedWordPoints > 0)
                     {
-                        callerPlayer.Score += ChallengeBonusPoints;
+                        challengedPlayer.Score += awardedWordPoints;
                     }
+
+                    if (succeeded)
+                    {
+                        activeChallenge.Status = "succeeded";
+
+                        if (challengedPlayer is not null)
+                        {
+                            challengedPlayer.Score += ChallengeBonusPoints;
+                        }
+                    }
+                    else
+                    {
+                        activeChallenge.Status = "failed";
+
+                        var callerPlayer = await dbContext.GamePlayers
+                            .FirstOrDefaultAsync(
+                                x => x.GameId == round.GameId && x.UserId == activeChallenge.CallerPlayerId,
+                                cancellationToken);
+
+                        if (callerPlayer is not null)
+                        {
+                            callerPlayer.Score += ChallengeBonusPoints;
+                        }
+                    }
+
+                    var orderedPlayers = await dbContext.GamePlayers
+                        .AsNoTracking()
+                        .Where(x => x.GameId == round.GameId)
+                        .OrderBy(x => x.TurnOrder)
+                        .ToListAsync(cancellationToken);
+
+                    round.Status = "completed";
+                    round.CurrentPlayerId = GetNextPlayerId(orderedPlayers, activeChallenge.ChallengedPlayerId);
+
+                    await ResetPlayersReadyStateAsync(round.GameId, cancellationToken);
+
+                    await dbContext.SaveChangesAsync(cancellationToken);
                 }
-
-                var orderedPlayers = await dbContext.GamePlayers
-                    .AsNoTracking()
-                    .Where(x => x.GameId == round.GameId)
-                    .OrderBy(x => x.TurnOrder)
-                    .ToListAsync(cancellationToken);
-
-                round.Status = "completed";
-                round.CurrentPlayerId = GetNextPlayerId(orderedPlayers, activeChallenge.ChallengedPlayerId);
-
-                await ResetPlayersReadyStateAsync(round.GameId, cancellationToken);
-
-                await dbContext.SaveChangesAsync(cancellationToken);
             }
-        }
 
-        return round;
+            return round;
         }
         finally
         {
