@@ -36,16 +36,18 @@ public class RoundService(IRoundRepository roundRepository) : IRoundService
             throw new ArgumentOutOfRangeException(nameof(bidCount), "Bid count must be greater than zero.");
         }
 
-        var gamePlayers = round.Game?.Players
+        var gamePlayers = round.Game?.Players?
             .OrderBy(gamePlayer => gamePlayer.TurnOrder)
-            .ToList() ?? [];
+            .ToList();
 
-        if (gamePlayers.Count == 0 || gamePlayers.All(gamePlayer => gamePlayer.UserId != playerId))
+        if (gamePlayers is { Count: > 0 } && gamePlayers.All(gamePlayer => gamePlayer.UserId != playerId))
         {
             throw new InvalidOperationException("Only players in this game can place bids.");
         }
 
-        if (round.CurrentPlayerId.HasValue && round.CurrentPlayerId.Value != playerId)
+        if (gamePlayers is { Count: > 0 } &&
+            round.CurrentPlayerId.HasValue &&
+            round.CurrentPlayerId.Value != playerId)
         {
             throw new InvalidOperationException("It is not this player's turn to bid.");
         }
@@ -66,7 +68,10 @@ public class RoundService(IRoundRepository roundRepository) : IRoundService
         round.Bids.Add(bid);
         round.HighestBidCount = bidCount;
         round.HighestBidPlayerId = playerId;
-        round.CurrentPlayerId = GetNextPlayerId(gamePlayers, playerId);
+        if (gamePlayers is { Count: > 0 })
+        {
+            round.CurrentPlayerId = GetNextPlayerId(gamePlayers, playerId);
+        }
 
         return new RoundBidResult
         {
