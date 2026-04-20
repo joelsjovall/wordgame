@@ -6,11 +6,13 @@ namespace Server.Controllers;
 
 [ApiController]
 [Route("api/rounds")]
-public class RoundsController(IRoundService roundService) : ControllerBase
+public class RoundsController(IRoundService roundService, GameFlowService gameFlowService) : ControllerBase
 {
     [HttpPost("{roundId:int}/bid")]
     public async Task<IActionResult> PlaceBid(int roundId, [FromBody] PlaceBidRequest request, CancellationToken cancellationToken)
     {
+        await gameFlowService.ProcessRoundTimeoutsAsync(roundId, cancellationToken);
+
         if (request.PlayerId <= 0)
         {
             return BadRequest(new { message = "PlayerId must be greater than zero." });

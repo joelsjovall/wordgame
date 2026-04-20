@@ -42,6 +42,9 @@ builder.Services.AddScoped<ICategoryWordRepository, CategoryWordRepository>();
 builder.Services.AddScoped<IRoundRepository, RoundRepository>();
 builder.Services.AddScoped<IWordValidationService, WordValidationService>();
 builder.Services.AddScoped<IRoundService, RoundService>();
+builder.Services.AddScoped<GameFlowService>();
+builder.Services.AddSingleton<GameTurnStateService>();
+builder.Services.AddSingleton<GameConcurrencyService>();
 
 var app = builder.Build();
 
