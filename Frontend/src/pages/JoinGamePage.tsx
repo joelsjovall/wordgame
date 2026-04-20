@@ -29,7 +29,7 @@ function JoinGamePage() {
     }
 
     if (!normalizedUsername) {
-      alert("Please enter a username");
+      alert("Please enter your username");
       return;
     }
 
