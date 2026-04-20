@@ -346,13 +346,18 @@ public static class GamesEndpoints
             var expectedStartingPlayerId = previousRound?.CurrentPlayerId ?? orderedPlayers[0].UserId;
             var currentPlayerId = request.CurrentPlayerId.GetValueOrDefault();
             var openingBidCount = request.OpeningBidCount > 0 ? request.OpeningBidCount : 1;
+            var isLegacyDirectStart = orderedPlayers.Count > 1 && !orderedPlayers.All(player => player.IsReady);
 
-            if (orderedPlayers.Count > 1 && !orderedPlayers.All(player => player.IsReady))
+            if (isLegacyDirectStart &&
+                orderedPlayers.All(player => player.UserId != currentPlayerId))
             {
-                return Results.Conflict(new { message = "All players must click start before the round can begin." });
+                return Results.BadRequest(new
+                {
+                    message = "CurrentPlayerId must belong to this game."
+                });
             }
 
-            if (orderedPlayers.Count > 1)
+            if (!isLegacyDirectStart && orderedPlayers.Count > 1)
             {
                 var categorySelectionState = gameTurnStateService.ResolveCategorySelection(gameId, orderedPlayers);
                 expectedStartingPlayerId = categorySelectionState.ActivePlayerId;
@@ -366,7 +371,7 @@ public static class GamesEndpoints
                 }
             }
 
-            if (currentPlayerId != expectedStartingPlayerId)
+            if (!isLegacyDirectStart && currentPlayerId != expectedStartingPlayerId)
             {
                 return Results.BadRequest(new
                 {
