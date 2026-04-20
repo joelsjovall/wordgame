@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { Link, useLocation } from "react-router-dom";
 
 type Player = {
@@ -125,7 +125,7 @@ function GameLobbyPage() {
     return Number.isFinite(idAsNumber) && idAsNumber > 0 ? idAsNumber : 0;
   })();
 
-  const fetchPlayers = async () => {
+  const fetchPlayers = useCallback(async () => {
     if (!Number.isFinite(resolvedGameId) || resolvedGameId <= 0) return;
 
     const response = await fetch(`${API_BASE_URL}/api/games/${resolvedGameId}/players`);
@@ -135,9 +135,9 @@ function GameLobbyPage() {
 
     const data = (await response.json()) as Player[];
     setPlayers(data);
-  };
+  }, [resolvedGameId]);
 
-  const fetchCurrentRound = async () => {
+  const fetchCurrentRound = useCallback(async () => {
     if (!Number.isFinite(resolvedGameId) || resolvedGameId <= 0) return 0;
 
     const response = await fetch(`${API_BASE_URL}/api/games/${resolvedGameId}/current-round`);
@@ -154,9 +154,9 @@ function GameLobbyPage() {
     }
 
     return 0;
-  };
+  }, [resolvedGameId]);
 
-  const fetchRoundResults = async (roundIdOverride?: number) => {
+  const fetchRoundResults = useCallback(async (roundIdOverride?: number) => {
     const roundId = roundIdOverride ?? resolvedRoundId;
     if (!Number.isFinite(roundId) || roundId <= 0) return;
 
@@ -179,7 +179,7 @@ function GameLobbyPage() {
     } catch {
       // Best effort refresh only.
     }
-  };
+  }, [resolvedRoundId]);
 
   useEffect(() => {
     if (!Number.isFinite(resolvedGameId) || resolvedGameId <= 0) {
@@ -211,7 +211,7 @@ function GameLobbyPage() {
       isMounted = false;
       window.clearInterval(intervalId);
     };
-  }, [resolvedGameId, resolvedRoundId]);
+  }, [fetchCurrentRound, fetchPlayers, fetchRoundResults, resolvedGameId, resolvedRoundId]);
 
   const fetchCategoriesByDifficulty = async (difficulty: "easy" | "medium" | "hard") => {
     setSelectedDifficulty(difficulty);
