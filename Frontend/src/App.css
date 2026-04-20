@@ -356,6 +356,13 @@
   gap: 26px;
 }
 
+.sketch-action-row {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 12px;
+}
+
 .sketch-word-label {
   font-family: var(--body);
   font-size: 1.5rem;
@@ -461,6 +468,10 @@
 
   .sketch-lobby-body {
     grid-template-columns: 1fr;
+  }
+
+  .sketch-action-row {
+    width: 100%;
   }
 
   .sketch-history-column {
