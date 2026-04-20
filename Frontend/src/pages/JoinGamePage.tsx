@@ -24,12 +24,12 @@ function JoinGamePage() {
     const normalizedUsername = username.trim();
 
     if (!normalizedCode) {
-      alert("Please enter a game code");
+      alert("Please enter the game code");
       return;
     }
 
     if (!normalizedUsername) {
-      alert("Please enter a username");
+      alert("Please enter your username");
       return;
     }
 

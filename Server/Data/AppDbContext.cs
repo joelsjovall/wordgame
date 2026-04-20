@@ -64,7 +64,6 @@ public class AppDbContext : DbContext
             entity.Property(x => x.UserId).HasColumnName("user_id");
             entity.Property(x => x.TurnOrder).HasColumnName("player_order");
             entity.Property(x => x.Score).HasColumnName("score");
-            entity.Property(x => x.Lives).HasColumnName("lives");
             entity.Property(x => x.IsReady).HasColumnName("is_ready");
 
             entity.HasOne(x => x.Game)

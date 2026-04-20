@@ -158,6 +158,57 @@ public class GamesEndpointsTests(CustomWebApplicationFactory factory) : IClassFi
         Assert.Equal(startedRound.RoundId, currentRound.CurrentRoundId);
     }
 
+    [Fact]
+    public async Task StartRound_AllowsLegacyDirectStart_WhenLobbyPlayersAreNotReady()
+    {
+        await ResetDatabaseAsync();
+
+        using var scope = factory.Services.CreateScope();
+        var dbContext = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+        dbContext.Categories.Add(new Category
+        {
+            Name = "Animals",
+            Difficulty = "easy",
+            Points = 1
+        });
+        await dbContext.SaveChangesAsync();
+        var categoryId = dbContext.Categories.Single().Id;
+
+        using var client = CreateClient();
+
+        var createResponse = await client.PostAsJsonAsync("/api/games", new
+        {
+            username = "HostPlayer"
+        });
+        var createdGame = await createResponse.Content.ReadFromJsonAsync<CreateOrJoinGameResponse>();
+
+        var joinResponse = await client.PostAsJsonAsync("/api/games/join", new
+        {
+            username = "GuestPlayer",
+            code = createdGame!.Code
+        });
+        var joinedGame = await joinResponse.Content.ReadFromJsonAsync<CreateOrJoinGameResponse>();
+
+        var startRoundResponse = await client.PostAsJsonAsync($"/api/games/{createdGame.GameId}/rounds/start", new
+        {
+            categoryId,
+            currentPlayerId = joinedGame!.UserId
+        });
+
+        Assert.Equal(HttpStatusCode.Created, startRoundResponse.StatusCode);
+
+        var startedRound = await startRoundResponse.Content.ReadFromJsonAsync<StartRoundResponse>();
+        Assert.NotNull(startedRound);
+        Assert.Equal(createdGame.GameId, startedRound.GameId);
+        Assert.Equal(categoryId, startedRound.CategoryId);
+
+        using var verificationScope = factory.Services.CreateScope();
+        var verificationDbContext = verificationScope.ServiceProvider.GetRequiredService<AppDbContext>();
+        var persistedRound = await verificationDbContext.Rounds.FindAsync(startedRound.RoundId);
+        Assert.NotNull(persistedRound);
+        Assert.Equal(2, persistedRound.HighestBidCount);
+    }
+
     private HttpClient CreateClient()
     {
         return factory.CreateClient(new WebApplicationFactoryClientOptions

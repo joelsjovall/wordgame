@@ -7,6 +7,7 @@ on:
       - STpage
       - publish
       - joining
+      - Timer
   pull_request:
     branches:
       - main
