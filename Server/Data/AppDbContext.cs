@@ -16,6 +16,7 @@ public class AppDbContext : DbContext
     public DbSet<Bid> Bids => Set<Bid>();
     public DbSet<Challenge> Challenges => Set<Challenge>();
     public DbSet<SubmittedWord> SubmittedWords => Set<SubmittedWord>();
+    public DbSet<RoundLiveDraft> RoundLiveDrafts => Set<RoundLiveDraft>();
     public DbSet<Category> Categories => Set<Category>();
     public DbSet<CategoryWord> CategoryWords => Set<CategoryWord>();
     public DbSet<WordAlias> WordAliases => Set<WordAlias>();
@@ -178,6 +179,29 @@ public class AppDbContext : DbContext
             entity.HasOne(x => x.MatchedCategoryWord)
                 .WithMany()
                 .HasForeignKey(x => x.MatchedCategoryWordId)
+                .OnDelete(DeleteBehavior.Restrict);
+        });
+
+        modelBuilder.Entity<RoundLiveDraft>(entity =>
+        {
+            entity.ToTable("round_live_drafts");
+            entity.HasKey(x => x.Id);
+            entity.Property(x => x.Id).HasColumnName("id");
+            entity.Property(x => x.RoundId).HasColumnName("round_id");
+            entity.Property(x => x.PlayerId).HasColumnName("player_id");
+            entity.Property(x => x.CurrentInput).HasColumnName("current_input").HasMaxLength(255);
+            entity.Property(x => x.PendingWordsJson).HasColumnName("pending_words_json");
+            entity.Property(x => x.UpdatedAt).HasColumnName("updated_at");
+
+            entity.HasIndex(x => new { x.RoundId, x.PlayerId }).IsUnique();
+
+            entity.HasOne(x => x.Round)
+                .WithMany()
+                .HasForeignKey(x => x.RoundId);
+
+            entity.HasOne(x => x.Player)
+                .WithMany()
+                .HasForeignKey(x => x.PlayerId)
                 .OnDelete(DeleteBehavior.Restrict);
         });
 

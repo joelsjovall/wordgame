@@ -1,3 +1,4 @@
+using System.Text.RegularExpressions;
 using Microsoft.EntityFrameworkCore;
 using Server.Data;
 using Server.Data.Entities;
@@ -260,8 +261,147 @@ public static class GamesEndpoints
             });
         });
 
+
+
+
+        // ⭐ RAISE – spela ord + gå vidare till nästa spelare
+        group.MapPost("/{gameId:int}/raise", async (
+            int gameId,
+            RaiseRequest request,
+            AppDbContext dbContext,
+            CancellationToken cancellationToken) =>
+        {
+            // 1. Hämta spelet + current round
+            var game = await dbContext.Games
+                .Include(g => g.Rounds)
+                .FirstOrDefaultAsync(g => g.Id == gameId, cancellationToken);
+
+            if (game is null)
+                return Results.NotFound(new { message = $"Game {gameId} was not found." });
+
+            if (!game.CurrentRoundId.HasValue)
+                return Results.BadRequest(new { message = "Game has no active round." });
+
+            var round = await dbContext.Rounds
+                .FirstOrDefaultAsync(r => r.Id == game.CurrentRoundId.Value, cancellationToken);
+
+            if (round is null)
+                return Results.NotFound(new { message = "Round not found." });
+
+            // 2. Kolla att det är spelarens tur
+            if (round.CurrentPlayerId != request.UserId)
+                return Results.BadRequest(new { message = "Not your turn." });
+
+            // 3. Ge poäng (placeholder)
+            var player = await dbContext.GamePlayers
+                .FirstOrDefaultAsync(p => p.GameId == gameId && p.UserId == request.UserId, cancellationToken);
+
+            if (player is null)
+                return Results.BadRequest(new { message = "Player not found in this game." });
+
+            player.Score += 1;
+
+            // 4. Flytta turen till nästa spelare
+            var players = await dbContext.GamePlayers
+                .Where(p => p.GameId == gameId)
+                .OrderBy(p => p.TurnOrder)
+                .ToListAsync(cancellationToken);
+
+            var currentIndex = players.FindIndex(p => p.UserId == request.UserId);
+            if (currentIndex == -1)
+                return Results.BadRequest(new { message = "Current player not found in turn order." });
+
+            var nextIndex = (currentIndex + 1) % players.Count;
+            var nextPlayer = players[nextIndex];
+
+            round.CurrentPlayerId = nextPlayer.UserId;
+
+            await dbContext.SaveChangesAsync(cancellationToken);
+
+            return Results.Ok(new
+            {
+                message = "Word played, turn passed.",
+                nextPlayerId = nextPlayer.UserId,
+                yourScore = player.Score
+            });
+        });
+
+        // ⭐ CALL BS – utmana förra spelaren
+        group.MapPost("/{gameId:int}/callbs", async (
+            int gameId,
+            CallBsRequest request,
+            AppDbContext dbContext,
+            CancellationToken cancellationToken) =>
+        {
+            var game = await dbContext.Games
+                .Include(g => g.Rounds)
+                .FirstOrDefaultAsync(g => g.Id == gameId, cancellationToken);
+
+            if (game is null)
+                return Results.NotFound(new { message = $"Game {gameId} was not found." });
+
+            if (!game.CurrentRoundId.HasValue)
+                return Results.BadRequest(new { message = "Game has no active round." });
+
+            var round = await dbContext.Rounds
+                .FirstOrDefaultAsync(r => r.Id == game.CurrentRoundId.Value, cancellationToken);
+
+            if (round is null)
+                return Results.NotFound(new { message = "Round not found." });
+
+            // Hämta alla spelare i turordning
+            var players = await dbContext.GamePlayers
+                .Where(p => p.GameId == gameId)
+                .OrderBy(p => p.TurnOrder)
+                .ToListAsync(cancellationToken);
+
+            if (!players.Any())
+                return Results.BadRequest(new { message = "No players in this game." });
+
+            // Hitta index för current player
+            var currentIndex = players.FindIndex(p => p.UserId == round.CurrentPlayerId);
+            if (currentIndex == -1)
+                return Results.BadRequest(new { message = "Current player not found in turn order." });
+
+            // Förra spelaren
+            var previousIndex = (currentIndex - 1 + players.Count) % players.Count;
+            var previousPlayer = players[previousIndex];
+
+            var caller = players.FirstOrDefault(p => p.UserId == request.UserId);
+            if (caller is null)
+                return Results.BadRequest(new { message = "Caller is not in this game." });
+
+            // ⭐ Placeholder: slumpa om det var bluff
+            var random = Random.Shared.Next(0, 2);
+            var wasBluff = random == 1;
+
+            if (wasBluff)
+            {
+                previousPlayer.Score -= 2;
+            }
+            else
+            {
+                caller.Score -= 2;
+            }
+
+            await dbContext.SaveChangesAsync(cancellationToken);
+
+            return Results.Ok(new
+            {
+                message = wasBluff ? "BS was correct!" : "BS was wrong!",
+                callerId = caller.UserId,
+                previousPlayerId = previousPlayer.UserId,
+                callerScore = caller.Score,
+                previousPlayerScore = previousPlayer.Score
+            });
+        });
+
         return group;
     }
+
+    //  MODELLER
+
+
 
     public sealed class StartRoundRequest
     {
@@ -279,4 +419,17 @@ public static class GamesEndpoints
         public string Username { get; set; } = string.Empty;
         public string Code { get; set; } = string.Empty;
     }
+
+    public sealed class RaiseRequest
+    {
+        public int UserId { get; set; }
+        public string Word { get; set; } = string.Empty;
+    }
+
+    public sealed class CallBsRequest
+    {
+        public int UserId { get; set; }
+    }
 }
+
+

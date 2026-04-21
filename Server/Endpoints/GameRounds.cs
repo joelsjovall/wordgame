@@ -1,3 +1,4 @@
+using System.Text.Json;
 using Microsoft.EntityFrameworkCore;
 using Server.Data;
 using Server.Data.Entities;
@@ -202,6 +203,16 @@ public static class GameRoundsEndpoints
                 gamePlayer.Score += awardedPoints;
             }
 
+            var liveDraft = await dbContext.RoundLiveDrafts
+                .FirstOrDefaultAsync(
+                    x => x.RoundId == roundId && x.PlayerId == request.PlayerId,
+                    cancellationToken);
+
+            if (liveDraft is not null)
+            {
+                dbContext.RoundLiveDrafts.Remove(liveDraft);
+            }
+
             await dbContext.SaveChangesAsync(cancellationToken);
 
             return Results.Ok(new
@@ -222,6 +233,146 @@ public static class GameRoundsEndpoints
                     isAccepted = word.IsValid && !word.IsDuplicate
                 })
             });
+        });
+
+        group.MapPut("/{roundId:int}/drafts", async (
+            int roundId,
+            UpdateRoundDraftRequest request,
+            AppDbContext dbContext,
+            CancellationToken cancellationToken) =>
+        {
+            if (request.PlayerId <= 0)
+            {
+                return Results.ValidationProblem(new Dictionary<string, string[]>
+                {
+                    ["playerId"] = ["PlayerId must be greater than 0."]
+                });
+            }
+
+            var round = await dbContext.Rounds
+                .AsNoTracking()
+                .FirstOrDefaultAsync(x => x.Id == roundId, cancellationToken);
+
+            if (round is null)
+            {
+                return Results.NotFound(new { message = $"Round {roundId} was not found." });
+            }
+
+            var playerExists = await dbContext.GamePlayers
+                .AsNoTracking()
+                .AnyAsync(
+                    x => x.GameId == round.GameId && x.UserId == request.PlayerId,
+                    cancellationToken);
+
+            if (!playerExists)
+            {
+                return Results.ValidationProblem(new Dictionary<string, string[]>
+                {
+                    ["playerId"] = ["Player must belong to this game."]
+                });
+            }
+
+            var pendingWords = request.Words
+                .Where(word => !string.IsNullOrWhiteSpace(word))
+                .Select(word => word.Trim())
+                .ToList();
+            var currentInput = request.CurrentInput ?? string.Empty;
+
+            var draft = await dbContext.RoundLiveDrafts
+                .FirstOrDefaultAsync(
+                    x => x.RoundId == roundId && x.PlayerId == request.PlayerId,
+                    cancellationToken);
+
+            if (pendingWords.Count == 0 && string.IsNullOrWhiteSpace(currentInput))
+            {
+                if (draft is not null)
+                {
+                    dbContext.RoundLiveDrafts.Remove(draft);
+                    await dbContext.SaveChangesAsync(cancellationToken);
+                }
+
+                return Results.Ok(new
+                {
+                    roundId,
+                    playerId = request.PlayerId,
+                    currentInput = string.Empty,
+                    words = pendingWords,
+                    updatedAt = (DateTime?)null
+                });
+            }
+
+            if (draft is null)
+            {
+                draft = new RoundLiveDraft
+                {
+                    RoundId = roundId,
+                    PlayerId = request.PlayerId
+                };
+
+                dbContext.RoundLiveDrafts.Add(draft);
+            }
+
+            draft.CurrentInput = currentInput;
+            draft.PendingWordsJson = JsonSerializer.Serialize(pendingWords);
+            draft.UpdatedAt = DateTime.UtcNow;
+
+            await dbContext.SaveChangesAsync(cancellationToken);
+
+            return Results.Ok(new
+            {
+                roundId,
+                playerId = draft.PlayerId,
+                currentInput = draft.CurrentInput,
+                words = pendingWords,
+                updatedAt = draft.UpdatedAt
+            });
+        });
+
+        group.MapGet("/{roundId:int}/drafts", async (int roundId, AppDbContext dbContext, CancellationToken cancellationToken) =>
+        {
+            var round = await dbContext.Rounds
+                .AsNoTracking()
+                .FirstOrDefaultAsync(x => x.Id == roundId, cancellationToken);
+
+            if (round is null)
+            {
+                return Results.NotFound(new { message = $"Round {roundId} was not found." });
+            }
+
+            var drafts = await dbContext.GamePlayers
+                .AsNoTracking()
+                .Where(x => x.GameId == round.GameId)
+                .OrderBy(x => x.TurnOrder)
+                .Join(
+                    dbContext.Users.AsNoTracking(),
+                    gamePlayer => gamePlayer.UserId,
+                    user => user.Id,
+                    (gamePlayer, user) => new
+                    {
+                        gamePlayer.UserId,
+                        user.Username,
+                        gamePlayer.TurnOrder
+                    })
+                .GroupJoin(
+                    dbContext.RoundLiveDrafts.AsNoTracking().Where(x => x.RoundId == roundId),
+                    player => player.UserId,
+                    draft => draft.PlayerId,
+                    (player, playerDrafts) => new
+                    {
+                        player.UserId,
+                        player.Username,
+                        Draft = playerDrafts.FirstOrDefault()
+                    })
+                .ToListAsync(cancellationToken);
+
+            return Results.Ok(drafts.Select(draft => new
+            {
+                playerId = draft.UserId,
+                username = draft.Username,
+                currentInput = draft.Draft?.CurrentInput ?? string.Empty,
+                words = DeserializeWords(draft.Draft?.PendingWordsJson),
+                updatedAt = draft.Draft?.UpdatedAt
+            }));
         });
 
         group.MapGet("/{roundId:int}/results", async (int roundId, AppDbContext dbContext, CancellationToken cancellationToken) =>
@@ -302,5 +453,29 @@ public static class GameRoundsEndpoints
         public int CallerPlayerId { get; set; }
         public int RequiredWordCount { get; set; }
         public int TimeLimitSeconds { get; set; } = 60;
+    }
+
+    public sealed class UpdateRoundDraftRequest
+    {
+        public int PlayerId { get; set; }
+        public string CurrentInput { get; set; } = string.Empty;
+        public List<string> Words { get; set; } = [];
+    }
+
+    private static IReadOnlyList<string> DeserializeWords(string? pendingWordsJson)
+    {
+        if (string.IsNullOrWhiteSpace(pendingWordsJson))
+        {
+            return [];
+        }
+
+        try
+        {
+            return JsonSerializer.Deserialize<List<string>>(pendingWordsJson) ?? [];
+        }
+        catch (JsonException)
+        {
+            return [];
+        }
     }
 }
