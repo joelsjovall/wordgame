@@ -97,6 +97,14 @@ type StartRoundResponse = {
   roundId: number;
 };
 
+type LiveRoundDraft = {
+  playerId: number;
+  username: string;
+  currentInput: string;
+  words: string[];
+  updatedAt?: string | null;
+};
+
 type LocalResult = {
   word: string;
   correct?: boolean;
@@ -146,6 +154,7 @@ function GameLobbyPage() {
   const [submissionSummary, setSubmissionSummary] = useState<RoundSubmissionResponse | null>(null);
   const [roundResults, setRoundResults] = useState<RoundResultsResponse | null>(null);
   const [gameState, setGameState] = useState<GameStateResponse | null>(null);
+  const [liveDrafts, setLiveDrafts] = useState<LiveRoundDraft[]>([]);
   const [countdownSeconds, setCountdownSeconds] = useState<number | null>(null);
   const [resolvedRoundId, setResolvedRoundId] = useState(
     Number.isFinite(roundIdFromQuery) && roundIdFromQuery > 0 ? roundIdFromQuery : 0
@@ -233,6 +242,49 @@ function GameLobbyPage() {
     }
   }, [resolvedRoundId]);
 
+  const fetchLiveDrafts = useCallback(async (roundIdOverride?: number) => {
+    const roundId = roundIdOverride ?? resolvedRoundId;
+    if (!Number.isFinite(roundId) || roundId <= 0) {
+      setLiveDrafts([]);
+      return;
+    }
+
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/rounds/${roundId}/drafts`);
+      if (!response.ok) {
+        setLiveDrafts([]);
+        return;
+      }
+
+      const data = (await response.json()) as LiveRoundDraft[];
+      setLiveDrafts(Array.isArray(data) ? data : []);
+    } catch {
+      setLiveDrafts([]);
+    }
+  }, [resolvedRoundId]);
+
+  const syncLiveDraft = useCallback(async (roundId: number, playerId: number, nextCurrentInput: string, nextWords: string[]) => {
+    if (!Number.isFinite(roundId) || roundId <= 0 || playerId <= 0) {
+      return;
+    }
+
+    try {
+      await fetch(`${API_BASE_URL}/api/rounds/${roundId}/drafts`, {
+        method: "PUT",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          playerId,
+          currentInput: nextCurrentInput,
+          words: nextWords,
+        }),
+      });
+    } catch {
+      // Best effort only while typing.
+    }
+  }, []);
+
   useEffect(() => {
     if (!Number.isFinite(resolvedGameId) || resolvedGameId <= 0) {
       return;
@@ -249,8 +301,10 @@ function GameLobbyPage() {
           : (resolvedRoundId > 0 ? resolvedRoundId : await fetchCurrentRound());
         if (currentRoundId > 0) {
           await fetchRoundResults(currentRoundId);
+          await fetchLiveDrafts(currentRoundId);
         } else {
           setRoundResults(null);
+          setLiveDrafts([]);
         }
       } catch {
         if (isMounted) {
@@ -268,7 +322,23 @@ function GameLobbyPage() {
       isMounted = false;
       window.clearInterval(intervalId);
     };
-  }, [fetchCurrentRound, fetchGameState, fetchPlayers, fetchRoundResults, resolvedGameId, resolvedRoundId]);
+  }, [fetchCurrentRound, fetchGameState, fetchLiveDrafts, fetchPlayers, fetchRoundResults, resolvedGameId, resolvedRoundId]);
+
+  useEffect(() => {
+    if (!Number.isFinite(resolvedRoundId) || resolvedRoundId <= 0) {
+      setLiveDrafts([]);
+      return;
+    }
+
+    void fetchLiveDrafts(resolvedRoundId);
+    const intervalId = window.setInterval(() => {
+      void fetchLiveDrafts(resolvedRoundId);
+    }, 800);
+
+    return () => {
+      window.clearInterval(intervalId);
+    };
+  }, [fetchLiveDrafts, resolvedRoundId]);
 
   useEffect(() => {
     const nextSecondsRemaining = roundResults?.secondsRemaining ?? gameState?.secondsRemaining ?? null;
@@ -289,6 +359,25 @@ function GameLobbyPage() {
       window.clearInterval(intervalId);
     };
   }, [gameState?.secondsRemaining, roundResults?.secondsRemaining]);
+
+  useEffect(() => {
+    if (!Number.isFinite(resolvedRoundId) || resolvedRoundId <= 0 || resolvedPlayerId <= 0) {
+      return;
+    }
+
+    const existingLiveDraft = liveDrafts.find((draft) => draft.playerId === resolvedPlayerId);
+    if (submittedWords.length === 0 && !currentWord.trim() && !existingLiveDraft) {
+      return;
+    }
+
+    const timeoutId = window.setTimeout(() => {
+      void syncLiveDraft(resolvedRoundId, resolvedPlayerId, currentWord, submittedWords);
+    }, 250);
+
+    return () => {
+      window.clearTimeout(timeoutId);
+    };
+  }, [currentWord, liveDrafts, resolvedPlayerId, resolvedRoundId, submittedWords, syncLiveDraft]);
 
   const fetchCategoriesByDifficulty = async (difficulty: "easy" | "medium" | "hard") => {
     setSelectedDifficulty(difficulty);
@@ -354,6 +443,7 @@ function GameLobbyPage() {
     setSubmittedWords([]);
     setResults([]);
     setSubmissionSummary(null);
+    setLiveDrafts([]);
     await fetchGameState();
     await fetchRoundResults(startedRoundId);
   };
@@ -570,6 +660,7 @@ function GameLobbyPage() {
       setResults([]);
       setSubmissionSummary(null);
       setCurrentWord("");
+      setLiveDrafts([]);
       await fetchGameState();
       await fetchRoundResults(resolvedRoundId);
     } catch (error) {
@@ -610,6 +701,7 @@ function GameLobbyPage() {
   const highestBidPlayerName = roundResults?.highestBidPlayerName ?? null;
   const currentTurnPlayerName = gameState?.activePlayerName ?? roundResults?.currentPlayerName ?? null;
   const readyPlayerIds = new Set(gameState?.readyPlayerIds ?? []);
+  const liveDraftsByPlayerId = new Map(liveDrafts.map((draft) => [draft.playerId, draft]));
   const isMyTurn = resolvedPlayerId > 0 && activePlayerId === resolvedPlayerId;
   const isRoundStartPending = currentPhase === "round_start_pending";
   const amIReady = readyPlayerIds.has(resolvedPlayerId);
@@ -652,6 +744,18 @@ function GameLobbyPage() {
         : roundStatus === "challenge_active"
           ? "Time to write words"
           : "Time";
+  const liveDraftCards = topPlayers.map((player, index) => {
+    const playerId = Number(player.id);
+    const liveDraft = liveDraftsByPlayerId.get(playerId);
+
+    return {
+      id: player.id ?? index,
+      username: player.username || `Player ${index + 1}`,
+      currentInput: liveDraft?.currentInput ?? "",
+      words: liveDraft?.words ?? [],
+      isYou: playerId > 0 && playerId === resolvedPlayerId,
+    };
+  });
 
   return (
     <main className="page">
@@ -818,6 +922,25 @@ function GameLobbyPage() {
                   {submissionSummary.succeeded ? "Challenge succeeded." : "Challenge failed."} Awarded points: {submissionSummary.awardedPoints}
                 </p>
               )}
+            </div>
+
+            <div className="sketch-live-board">
+              <h3 className="sketch-live-title">Live answers</h3>
+              <div className="sketch-live-grid">
+                {liveDraftCards.map((draft) => (
+                  <article className="sketch-live-card" key={draft.id}>
+                    <p className="sketch-live-player">{draft.username}{draft.isYou ? " (you)" : ""}</p>
+                    {draft.words.length > 0 ? (
+                      <p className="sketch-live-words">{draft.words.join(", ")}</p>
+                    ) : (
+                      <p className="sketch-live-empty">No accepted words shared yet</p>
+                    )}
+                    {draft.currentInput.trim() ? (
+                      <p className="sketch-live-typing">Typing: {draft.currentInput}</p>
+                    ) : null}
+                  </article>
+                ))}
+              </div>
             </div>
 
             <div className="sketch-stats-block">

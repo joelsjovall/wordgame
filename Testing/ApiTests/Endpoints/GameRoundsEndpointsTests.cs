@@ -4,6 +4,7 @@ using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.Extensions.DependencyInjection;
 using Server.Data;
 using Server.Data.Entities;
+using Server.Services;
 using WordGame.ApiTests.Fixtures;
 using Xunit;
 
@@ -94,6 +95,51 @@ public class GameRoundsEndpointsTests(CustomWebApplicationFactory factory) : ICl
         Assert.Equal(2, trackedChallenge.ValidUniqueWordCount);
     }
 
+    [Fact]
+    public async Task DraftEndpoints_ShareLiveWordsForTheActiveChallengePlayer()
+    {
+        var scenario = await SeedRoundScenarioAsync();
+
+        using var client = CreateClient();
+
+        var challengeResponse = await client.PostAsJsonAsync($"/api/rounds/{scenario.RoundId}/challenges", new
+        {
+            challengedPlayerId = scenario.GuestUserId,
+            callerPlayerId = scenario.HostUserId,
+            requiredWordCount = 2,
+            timeLimitSeconds = 60
+        });
+
+        Assert.Equal(HttpStatusCode.Created, challengeResponse.StatusCode);
+
+        var updateResponse = await client.PutAsJsonAsync($"/api/rounds/{scenario.RoundId}/drafts", new
+        {
+            playerId = scenario.GuestUserId,
+            currentInput = "ban",
+            words = new[] { "Apple" }
+        });
+
+        Assert.Equal(HttpStatusCode.OK, updateResponse.StatusCode);
+
+        var draftsResponse = await client.GetAsync($"/api/rounds/{scenario.RoundId}/drafts");
+
+        Assert.Equal(HttpStatusCode.OK, draftsResponse.StatusCode);
+
+        var drafts = await draftsResponse.Content.ReadFromJsonAsync<List<RoundDraftResponse>>();
+        Assert.NotNull(drafts);
+        Assert.Equal(2, drafts.Count);
+
+        var guestDraft = Assert.Single(drafts, draft => draft.PlayerId == scenario.GuestUserId);
+        Assert.Equal("GuestPlayer", guestDraft.Username);
+        Assert.Equal("ban", guestDraft.CurrentInput);
+        Assert.Equal(["Apple"], guestDraft.Words);
+
+        var hostDraft = Assert.Single(drafts, draft => draft.PlayerId == scenario.HostUserId);
+        Assert.Equal("HostPlayer", hostDraft.Username);
+        Assert.Empty(hostDraft.Words);
+        Assert.Equal(string.Empty, hostDraft.CurrentInput);
+    }
+
     private HttpClient CreateClient()
     {
         return factory.CreateClient(new WebApplicationFactoryClientOptions
@@ -106,9 +152,11 @@ public class GameRoundsEndpointsTests(CustomWebApplicationFactory factory) : ICl
     {
         using var scope = factory.Services.CreateScope();
         var dbContext = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+        var roundLiveDraftService = scope.ServiceProvider.GetRequiredService<RoundLiveDraftService>();
 
         await dbContext.Database.EnsureDeletedAsync();
         await dbContext.Database.EnsureCreatedAsync();
+        roundLiveDraftService.ClearAll();
 
         var hostUser = new User { Username = "HostPlayer", CreatedAt = DateTime.UtcNow };
         var guestUser = new User { Username = "GuestPlayer", CreatedAt = DateTime.UtcNow };
@@ -251,5 +299,13 @@ public class GameRoundsEndpointsTests(CustomWebApplicationFactory factory) : ICl
         public int RequiredWordCount { get; set; }
         public string Status { get; set; } = string.Empty;
         public int ValidUniqueWordCount { get; set; }
+    }
+
+    public sealed class RoundDraftResponse
+    {
+        public int PlayerId { get; set; }
+        public string Username { get; set; } = string.Empty;
+        public string CurrentInput { get; set; } = string.Empty;
+        public List<string> Words { get; set; } = [];
     }
 }

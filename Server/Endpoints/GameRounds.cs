@@ -16,6 +16,7 @@ public static class GameRoundsEndpoints
             CreateChallengeRequest request,
             AppDbContext dbContext,
             GameFlowService gameFlowService,
+            RoundLiveDraftService roundLiveDraftService,
             CancellationToken cancellationToken) =>
         {
             await gameFlowService.ProcessRoundTimeoutsAsync(roundId, cancellationToken);
@@ -78,12 +79,15 @@ public static class GameRoundsEndpoints
                 return Results.Conflict(new { message = "There is no active bid to challenge yet." });
             }
 
-            if (isBiddingRound && request.ChallengedPlayerId != round.HighestBidPlayerId.Value)
+            var highestBidPlayerId = round.HighestBidPlayerId;
+            var highestBidCount = round.HighestBidCount;
+
+            if (isBiddingRound && request.ChallengedPlayerId != highestBidPlayerId)
             {
                 return Results.Conflict(new { message = "The challenged player must be the current highest bidder." });
             }
 
-            if (isBiddingRound && request.RequiredWordCount != round.HighestBidCount.Value)
+            if (isBiddingRound && request.RequiredWordCount != highestBidCount)
             {
                 return Results.Conflict(new { message = "The challenge word count must match the current highest bid." });
             }
@@ -136,6 +140,7 @@ public static class GameRoundsEndpoints
             // Keep round state aligned with gameplay progression.
             round.Status = "challenge_active";
             round.CurrentPlayerId = challenge.ChallengedPlayerId;
+            roundLiveDraftService.ClearRound(roundId);
 
             await dbContext.SaveChangesAsync(cancellationToken);
 
@@ -159,6 +164,7 @@ public static class GameRoundsEndpoints
             IWordValidationService wordValidationService,
             GameFlowService gameFlowService,
             GameTurnStateService gameTurnStateService,
+            RoundLiveDraftService roundLiveDraftService,
             CancellationToken cancellationToken) =>
         {
             await gameFlowService.ProcessRoundTimeoutsAsync(roundId, cancellationToken);
@@ -264,6 +270,8 @@ public static class GameRoundsEndpoints
                 await gameFlowService.ResetPlayersReadyStateAsync(round.GameId, cancellationToken);
             }
 
+            roundLiveDraftService.ClearRound(roundId);
+
             await dbContext.SaveChangesAsync(cancellationToken);
 
             return Results.Ok(new
@@ -284,6 +292,128 @@ public static class GameRoundsEndpoints
                     isAccepted = word.IsValid && !word.IsDuplicate
                 })
             });
+        });
+
+        group.MapPut("/{roundId:int}/drafts", async (
+            int roundId,
+            UpdateRoundDraftRequest request,
+            AppDbContext dbContext,
+            GameFlowService gameFlowService,
+            RoundLiveDraftService roundLiveDraftService,
+            CancellationToken cancellationToken) =>
+        {
+            await gameFlowService.ProcessRoundTimeoutsAsync(roundId, cancellationToken);
+
+            if (request.PlayerId <= 0)
+            {
+                return Results.ValidationProblem(new Dictionary<string, string[]>
+                {
+                    ["playerId"] = ["PlayerId must be greater than 0."]
+                });
+            }
+
+            var round = await dbContext.Rounds
+                .AsNoTracking()
+                .FirstOrDefaultAsync(x => x.Id == roundId, cancellationToken);
+
+            if (round is null)
+            {
+                return Results.NotFound(new { message = $"Round {roundId} was not found." });
+            }
+
+            if (!string.Equals(round.Status, "challenge_active", StringComparison.OrdinalIgnoreCase))
+            {
+                roundLiveDraftService.ClearRound(roundId);
+                return Results.Conflict(new { message = "Live drafts are only available during an active challenge." });
+            }
+
+            if (!round.CurrentPlayerId.HasValue || round.CurrentPlayerId.Value != request.PlayerId)
+            {
+                return Results.Conflict(new { message = "Only the challenged player can share live words right now." });
+            }
+
+            var playerExists = await dbContext.GamePlayers
+                .AsNoTracking()
+                .AnyAsync(x => x.GameId == round.GameId && x.UserId == request.PlayerId, cancellationToken);
+
+            if (!playerExists)
+            {
+                return Results.ValidationProblem(new Dictionary<string, string[]>
+                {
+                    ["playerId"] = ["Player must belong to this game."]
+                });
+            }
+
+            roundLiveDraftService.UpdateDraft(
+                roundId,
+                request.PlayerId,
+                request.CurrentInput,
+                request.Words ?? []);
+
+            var updatedDraft = roundLiveDraftService.GetDrafts(roundId)
+                .FirstOrDefault(draft => draft.PlayerId == request.PlayerId);
+
+            return Results.Ok(new
+            {
+                roundId,
+                playerId = request.PlayerId,
+                currentInput = updatedDraft?.CurrentInput ?? string.Empty,
+                words = updatedDraft?.Words ?? [],
+                updatedAt = updatedDraft?.UpdatedAt
+            });
+        });
+
+        group.MapGet("/{roundId:int}/drafts", async (
+            int roundId,
+            AppDbContext dbContext,
+            GameFlowService gameFlowService,
+            RoundLiveDraftService roundLiveDraftService,
+            CancellationToken cancellationToken) =>
+        {
+            var round = await gameFlowService.ProcessRoundTimeoutsAsync(roundId, cancellationToken);
+
+            if (round is null)
+            {
+                return Results.NotFound(new { message = $"Round {roundId} was not found." });
+            }
+
+            if (!string.Equals(round.Status, "challenge_active", StringComparison.OrdinalIgnoreCase))
+            {
+                roundLiveDraftService.ClearRound(roundId);
+            }
+
+            var players = await dbContext.GamePlayers
+                .AsNoTracking()
+                .Where(x => x.GameId == round.GameId)
+                .Join(
+                    dbContext.Users.AsNoTracking(),
+                    gamePlayer => gamePlayer.UserId,
+                    user => user.Id,
+                    (gamePlayer, user) => new
+                    {
+                        PlayerId = gamePlayer.UserId,
+                        user.Username,
+                        gamePlayer.TurnOrder
+                    })
+                .OrderBy(x => x.TurnOrder)
+                .ToListAsync(cancellationToken);
+
+            var draftsByPlayerId = roundLiveDraftService.GetDrafts(roundId)
+                .ToDictionary(draft => draft.PlayerId);
+
+            return Results.Ok(players.Select(player =>
+            {
+                draftsByPlayerId.TryGetValue(player.PlayerId, out var draft);
+
+                return new
+                {
+                    playerId = player.PlayerId,
+                    username = player.Username,
+                    currentInput = draft?.CurrentInput ?? string.Empty,
+                    words = draft?.Words ?? Array.Empty<string>(),
+                    updatedAt = draft?.UpdatedAt
+                };
+            }));
         });
 
         group.MapGet("/{roundId:int}/results", async (
@@ -379,6 +509,7 @@ public static class GameRoundsEndpoints
             AppDbContext dbContext,
             IWordValidationService wordValidationService,
             GameFlowService gameFlowService,
+            RoundLiveDraftService roundLiveDraftService,
             CancellationToken cancellationToken) =>
         {
             await gameFlowService.ProcessRoundTimeoutsAsync(roundId, cancellationToken);
@@ -465,6 +596,14 @@ public static class GameRoundsEndpoints
                 await dbContext.SaveChangesAsync(cancellationToken);
             }
 
+            roundLiveDraftService.UpdateDraft(
+                roundId,
+                request.PlayerId,
+                string.Empty,
+                validationResult.Words
+                    .Where(wordEntry => wordEntry.IsValid && !wordEntry.IsDuplicate)
+                    .Select(wordEntry => wordEntry.OriginalWord));
+
             return Results.Ok(new
             {
                 originalWord = latestWord.OriginalWord,
@@ -517,5 +656,12 @@ public static class GameRoundsEndpoints
         public int PlayerId { get; set; }
         public string Word { get; set; } = string.Empty;
         public List<string> ExistingWords { get; set; } = [];
+    }
+
+    public sealed class UpdateRoundDraftRequest
+    {
+        public int PlayerId { get; set; }
+        public string CurrentInput { get; set; } = string.Empty;
+        public List<string> Words { get; set; } = [];
     }
 }

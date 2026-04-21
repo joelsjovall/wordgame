@@ -7,7 +7,8 @@ namespace Server.Services;
 public class GameFlowService(
     AppDbContext dbContext,
     GameTurnStateService gameTurnStateService,
-    GameConcurrencyService gameConcurrencyService)
+    GameConcurrencyService gameConcurrencyService,
+    RoundLiveDraftService roundLiveDraftService)
 {
     private const int BidDecisionSeconds = 30;
     private const int DefaultTimeoutBidCount = 1;
@@ -280,6 +281,7 @@ public class GameFlowService(
                     round.CurrentPlayerId = GetNextPlayerId(orderedPlayers, activeChallenge.ChallengedPlayerId);
 
                     await ResetPlayersReadyStateAsync(round.GameId, cancellationToken);
+                    roundLiveDraftService.ClearRound(round.Id);
 
                     await dbContext.SaveChangesAsync(cancellationToken);
                 }

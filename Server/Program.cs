@@ -45,6 +45,7 @@ builder.Services.AddScoped<IRoundService, RoundService>();
 builder.Services.AddScoped<GameFlowService>();
 builder.Services.AddSingleton<GameTurnStateService>();
 builder.Services.AddSingleton<GameConcurrencyService>();
+builder.Services.AddSingleton<RoundLiveDraftService>();
 
 var app = builder.Build();
 
