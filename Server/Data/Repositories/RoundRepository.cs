@@ -8,6 +8,8 @@ public class RoundRepository(AppDbContext dbContext) : IRoundRepository
     public async Task<Round?> GetByIdAsync(int roundId, CancellationToken cancellationToken = default)
     {
         return await dbContext.Rounds
+            .Include(round => round.Game)
+                .ThenInclude(game => game!.Players)
             .Include(round => round.Bids)
             .FirstOrDefaultAsync(round => round.Id == roundId, cancellationToken);
     }

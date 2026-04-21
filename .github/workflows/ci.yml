@@ -7,6 +7,7 @@ on:
       - STpage
       - publish
       - joining
+      - Timer
   pull_request:
     branches:
       - main
@@ -29,7 +30,7 @@ jobs:
       - name: Set up .NET
         uses: actions/setup-dotnet@v4
         with:
-          dotnet-version: 10.0.x
+          dotnet-version: 9.0.x
 
       - name: Restore .NET dependencies
         run: dotnet restore wordgame.sln
