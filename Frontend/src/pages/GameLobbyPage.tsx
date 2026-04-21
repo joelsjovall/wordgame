@@ -159,12 +159,27 @@ function GameLobbyPage() {
   const [resolvedRoundId, setResolvedRoundId] = useState(
     Number.isFinite(roundIdFromQuery) && roundIdFromQuery > 0 ? roundIdFromQuery : 0
   );
+  const currentRoundIdFromGameState = Number(gameState?.currentRoundId ?? 0);
 
   useEffect(() => {
-    if (gameState?.currentRoundId && gameState.currentRoundId > 0) {
-      setResolvedRoundId(gameState.currentRoundId);
+    const nextResolvedRoundId = Number.isFinite(currentRoundIdFromGameState) && currentRoundIdFromGameState > 0
+      ? currentRoundIdFromGameState
+      : null;
+
+    if (nextResolvedRoundId === null) {
+      return;
     }
-  }, [gameState?.currentRoundId]);
+
+    const timeoutId = window.setTimeout(() => {
+      setResolvedRoundId((previousRoundId) =>
+        previousRoundId === nextResolvedRoundId ? previousRoundId : nextResolvedRoundId
+      );
+    }, 0);
+
+    return () => {
+      window.clearTimeout(timeoutId);
+    };
+  }, [currentRoundIdFromGameState]);
 
 
   const resolvedPlayerId = (() => {
