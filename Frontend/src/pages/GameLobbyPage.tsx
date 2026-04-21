@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect } from "react";
 import { Link, useLocation } from "react-router-dom";
 
 type Player = {
@@ -174,7 +174,7 @@ function GameLobbyPage() {
     return Number.isFinite(idAsNumber) && idAsNumber > 0 ? idAsNumber : 0;
   })();
 
-  const fetchPlayers = useCallback(async () => {
+  const fetchPlayers = async () => {
     if (!Number.isFinite(resolvedGameId) || resolvedGameId <= 0) return;
 
     const response = await fetch(`${API_BASE_URL}/api/games/${resolvedGameId}/players`);
@@ -184,9 +184,9 @@ function GameLobbyPage() {
 
     const data = (await response.json()) as Player[];
     setPlayers(data);
-  }, [resolvedGameId]);
+  };
 
-  const fetchGameState = useCallback(async () => {
+  const fetchGameState = async () => {
     if (!Number.isFinite(resolvedGameId) || resolvedGameId <= 0) return null;
 
     const response = await fetch(`${API_BASE_URL}/api/games/${resolvedGameId}/state`);
@@ -204,9 +204,9 @@ function GameLobbyPage() {
     }
 
     return data;
-  }, [resolvedGameId]);
+  };
 
-  const fetchRoundResults = useCallback(async (roundIdOverride?: number) => {
+  const fetchRoundResults = async (roundIdOverride?: number) => {
     const roundId = roundIdOverride ?? resolvedRoundId;
     if (!Number.isFinite(roundId) || roundId <= 0) {
       setRoundResults(null);
@@ -235,69 +235,63 @@ function GameLobbyPage() {
     } catch {
       setRoundResults(null);
     }
-  }, [resolvedRoundId]);
-
-
-
-
-  const fetchLiveDrafts = useCallback(async (roundIdOverride?: number) => {
-    const roundId = roundIdOverride ?? resolvedRoundId;
-    if (!Number.isFinite(roundId) || roundId <= 0) {
-      setLiveDrafts([]);
-      return;
-    }
-
-    try {
-      const response = await fetch(`${API_BASE_URL}/api/rounds/${roundId}/drafts`);
-      if (!response.ok) {
-        setLiveDrafts([]);
-        return;
-      }
-
-      const data = (await response.json()) as LiveRoundDraft[];
-      setLiveDrafts(Array.isArray(data) ? data : []);
-    } catch {
-      setLiveDrafts([]);
-    }
-  }, [resolvedRoundId]);
-
-
-
-
-  const syncLiveDraft = useCallback(async (
-    roundId: number,
-    playerId: number,
-    nextCurrentInput: string,
-    nextWords: string[]
-  ) => {
-    if (!Number.isFinite(roundId) || roundId <= 0 || playerId <= 0) {
-      return;
-    }
-
-    try {
-      await fetch(`${API_BASE_URL}/api/rounds/${roundId}/drafts`, {
-        method: "PUT",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          playerId,
-          currentInput: nextCurrentInput,
-          words: nextWords,
-        }),
-      });
-    } catch {
-      // Best effort only while typing.
-    }
-  }, []);
-
-
+  };
   useEffect(() => {
     if (!Number.isFinite(resolvedGameId) || resolvedGameId <= 0) {
       return;
     }
 
     let isMounted = true;
+
+    const loadRoundResults = async (roundId: number) => {
+      try {
+        const response = await fetch(`${API_BASE_URL}/api/rounds/${roundId}/results`);
+        if (!response.ok) {
+          if (isMounted) {
+            setRoundResults(null);
+          }
+          return;
+        }
+
+        const data = await response.json() as RoundResultsResponse;
+        if (!isMounted) return;
+
+        setRoundResults(data);
+        setCountdownSeconds(data.secondsRemaining ?? null);
+
+        if (data.category?.categoryName) {
+          setSelectedCategoryName(data.category.categoryName);
+        }
+
+        if (data.category?.categoryId) {
+          setSelectedCategory(String(data.category.categoryId));
+        }
+      } catch {
+        if (isMounted) {
+          setRoundResults(null);
+        }
+      }
+    };
+
+    const loadLiveDrafts = async (roundId: number) => {
+      try {
+        const response = await fetch(`${API_BASE_URL}/api/rounds/${roundId}/drafts`);
+        if (!response.ok) {
+          if (isMounted) {
+            setLiveDrafts([]);
+          }
+          return;
+        }
+
+        const data = (await response.json()) as LiveRoundDraft[];
+        if (!isMounted) return;
+        setLiveDrafts(Array.isArray(data) ? data : []);
+      } catch {
+        if (isMounted) {
+          setLiveDrafts([]);
+        }
+      }
+    };
 
     const loadLobbyState = async () => {
       try {
@@ -340,8 +334,8 @@ function GameLobbyPage() {
         }
 
         if (currentRoundId > 0) {
-          await fetchRoundResults(currentRoundId);
-          await fetchLiveDrafts(currentRoundId);
+          await loadRoundResults(currentRoundId);
+          await loadLiveDrafts(currentRoundId);
         } else {
           setRoundResults(null);
           setLiveDrafts([]);
@@ -362,7 +356,7 @@ function GameLobbyPage() {
       isMounted = false;
       window.clearInterval(intervalId);
     };
-  }, [fetchLiveDrafts, fetchRoundResults, resolvedGameId, resolvedRoundId]);
+  }, [resolvedGameId, resolvedRoundId]);
 
   const hasActiveCountdown = countdownSeconds !== null;
 
@@ -397,13 +391,29 @@ function GameLobbyPage() {
     }
 
     const timeoutId = window.setTimeout(() => {
-      void syncLiveDraft(resolvedRoundId, resolvedPlayerId, currentWord, submittedWords);
+      void (async () => {
+        try {
+          await fetch(`${API_BASE_URL}/api/rounds/${resolvedRoundId}/drafts`, {
+            method: "PUT",
+            headers: {
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify({
+              playerId: resolvedPlayerId,
+              currentInput: currentWord,
+              words: submittedWords,
+            }),
+          });
+        } catch {
+          // Best effort only while typing.
+        }
+      })();
     }, 250);
 
     return () => {
       window.clearTimeout(timeoutId);
     };
-  }, [currentWord, liveDrafts, resolvedPlayerId, resolvedRoundId, submittedWords, syncLiveDraft]);
+  }, [currentWord, liveDrafts, resolvedPlayerId, resolvedRoundId, submittedWords]);
 
   const fetchCategoriesByDifficulty = async (difficulty: "easy" | "medium" | "hard") => {
     setSelectedDifficulty(difficulty);
