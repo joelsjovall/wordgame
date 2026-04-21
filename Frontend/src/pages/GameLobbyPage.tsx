@@ -160,6 +160,13 @@ function GameLobbyPage() {
     Number.isFinite(roundIdFromQuery) && roundIdFromQuery > 0 ? roundIdFromQuery : 0
   );
 
+  useEffect(() => {
+    if (gameState?.currentRoundId && gameState.currentRoundId > 0) {
+      setResolvedRoundId(gameState.currentRoundId);
+    }
+  }, [gameState?.currentRoundId]);
+
+
   const resolvedPlayerId = (() => {
     if (playerIdFromQuery > 0) return playerIdFromQuery;
     const matchedPlayer = players.find((player) => String(player.username).toLowerCase() === username.toLowerCase());
@@ -322,7 +329,7 @@ function GameLobbyPage() {
       isMounted = false;
       window.clearInterval(intervalId);
     };
-  }, [fetchCurrentRound, fetchGameState, fetchLiveDrafts, fetchPlayers, fetchRoundResults, resolvedGameId, resolvedRoundId]);
+  }, [fetchCurrentRound, fetchGameState, fetchLiveDrafts, fetchPlayers, fetchRoundResults, resolvedGameId]);
 
   useEffect(() => {
     if (!Number.isFinite(resolvedRoundId) || resolvedRoundId <= 0) {
@@ -540,11 +547,11 @@ function GameLobbyPage() {
         prev.map((result) =>
           result.createdAt === createdAt && result.word === trimmed && result.pending
             ? {
-                ...result,
-                word: data.originalWord,
-                correct: data.isAccepted,
-                pending: false,
-              }
+              ...result,
+              word: data.originalWord,
+              correct: data.isAccepted,
+              pending: false,
+            }
             : result
         )
       );
@@ -558,10 +565,10 @@ function GameLobbyPage() {
         prev.map((result) =>
           result.createdAt === createdAt && result.word === trimmed && result.pending
             ? {
-                ...result,
-                correct: false,
-                pending: false,
-              }
+              ...result,
+              correct: false,
+              pending: false,
+            }
             : result
         )
       );
@@ -898,7 +905,7 @@ function GameLobbyPage() {
               </div>
 
               <label className="sketch-word-label" htmlFor="word-input">
-                S kriv orden här
+                Write your words here :
               </label>
               <input
                 id="word-input"
