@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { useEffect, useState } from "react";
 import { Link, useLocation } from "react-router-dom";
 
 type Player = {
@@ -158,7 +158,7 @@ function GameLobbyPage() {
     return Number.isFinite(idAsNumber) && idAsNumber > 0 ? idAsNumber : 0;
   })();
 
-  const fetchPlayers = useCallback(async () => {
+  const fetchPlayers = async () => {
     if (!Number.isFinite(resolvedGameId) || resolvedGameId <= 0) return;
 
     const response = await fetch(`${API_BASE_URL}/api/games/${resolvedGameId}/players`);
@@ -168,9 +168,9 @@ function GameLobbyPage() {
 
     const data = (await response.json()) as Player[];
     setPlayers(data);
-  }, [resolvedGameId]);
+  };
 
-  const fetchGameState = useCallback(async () => {
+  const fetchGameState = async () => {
     if (!Number.isFinite(resolvedGameId) || resolvedGameId <= 0) return null;
 
     const response = await fetch(`${API_BASE_URL}/api/games/${resolvedGameId}/state`);
@@ -180,6 +180,7 @@ function GameLobbyPage() {
 
     const data = (await response.json()) as GameStateResponse;
     setGameState(data);
+    setCountdownSeconds(data.secondsRemaining ?? null);
 
     const currentRoundId = Number(data.currentRoundId ?? 0);
     if (Number.isFinite(currentRoundId) && currentRoundId > 0) {
@@ -187,28 +188,9 @@ function GameLobbyPage() {
     }
 
     return data;
-  }, [resolvedGameId]);
+  };
 
-  const fetchCurrentRound = useCallback(async () => {
-    if (!Number.isFinite(resolvedGameId) || resolvedGameId <= 0) return 0;
-
-    const response = await fetch(`${API_BASE_URL}/api/games/${resolvedGameId}/current-round`);
-    if (!response.ok) {
-      return 0;
-    }
-
-    const data = (await response.json()) as { currentRoundId?: number; };
-    const currentRoundId = Number(data.currentRoundId ?? 0);
-
-    if (Number.isFinite(currentRoundId) && currentRoundId > 0) {
-      setResolvedRoundId(currentRoundId);
-      return currentRoundId;
-    }
-
-    return 0;
-  }, [resolvedGameId]);
-
-  const fetchRoundResults = useCallback(async (roundIdOverride?: number) => {
+  const fetchRoundResults = async (roundIdOverride?: number) => {
     const roundId = roundIdOverride ?? resolvedRoundId;
     if (!Number.isFinite(roundId) || roundId <= 0) return;
 
@@ -220,6 +202,7 @@ function GameLobbyPage() {
 
       const data = (await response.json()) as RoundResultsResponse;
       setRoundResults(data);
+      setCountdownSeconds(data.secondsRemaining ?? null);
 
       if (data.category.categoryName) {
         setSelectedCategoryName(data.category.categoryName);
@@ -231,7 +214,7 @@ function GameLobbyPage() {
     } catch {
       // Best effort refresh only.
     }
-  }, [resolvedRoundId]);
+  };
 
   useEffect(() => {
     if (!Number.isFinite(resolvedGameId) || resolvedGameId <= 0) {
@@ -242,15 +225,64 @@ function GameLobbyPage() {
 
     const loadLobbyState = async () => {
       try {
-        await fetchPlayers();
-        const state = await fetchGameState();
-        const currentRoundId = state?.currentRoundId && state.currentRoundId > 0
-          ? state.currentRoundId
-          : (resolvedRoundId > 0 ? resolvedRoundId : await fetchCurrentRound());
+        const playersResponse = await fetch(`${API_BASE_URL}/api/games/${resolvedGameId}/players`);
+        if (!playersResponse.ok) {
+          throw new Error("Could not fetch players");
+        }
+
+        const playersData = (await playersResponse.json()) as Player[];
+        if (!isMounted) return;
+        setPlayers(playersData);
+
+        const stateResponse = await fetch(`${API_BASE_URL}/api/games/${resolvedGameId}/state`);
+        if (!stateResponse.ok) {
+          throw new Error("Could not fetch game state");
+        }
+
+        const state = (await stateResponse.json()) as GameStateResponse;
+        if (!isMounted) return;
+
+        setGameState(state);
+        setCountdownSeconds(state.secondsRemaining ?? null);
+
+        const stateRoundId = Number(state.currentRoundId ?? 0);
+        if (Number.isFinite(stateRoundId) && stateRoundId > 0) {
+          setResolvedRoundId(stateRoundId);
+        }
+
+        let currentRoundId = stateRoundId > 0 ? stateRoundId : resolvedRoundId;
+
+        if (currentRoundId <= 0) {
+          const currentRoundResponse = await fetch(`${API_BASE_URL}/api/games/${resolvedGameId}/current-round`);
+          if (currentRoundResponse.ok) {
+            const currentRoundData = (await currentRoundResponse.json()) as { currentRoundId?: number; };
+            currentRoundId = Number(currentRoundData.currentRoundId ?? 0);
+            if (Number.isFinite(currentRoundId) && currentRoundId > 0 && isMounted) {
+              setResolvedRoundId(currentRoundId);
+            }
+          }
+        }
+
         if (currentRoundId > 0) {
-          await fetchRoundResults(currentRoundId);
+          const roundResultsResponse = await fetch(`${API_BASE_URL}/api/rounds/${currentRoundId}/results`);
+          if (roundResultsResponse.ok) {
+            const roundResultsData = (await roundResultsResponse.json()) as RoundResultsResponse;
+            if (!isMounted) return;
+
+            setRoundResults(roundResultsData);
+            setCountdownSeconds(roundResultsData.secondsRemaining ?? state.secondsRemaining ?? null);
+
+            if (roundResultsData.category.categoryName) {
+              setSelectedCategoryName(roundResultsData.category.categoryName);
+            }
+
+            if (roundResultsData.category.categoryId) {
+              setSelectedCategory(String(roundResultsData.category.categoryId));
+            }
+          }
         } else {
           setRoundResults(null);
+          setCountdownSeconds(state.secondsRemaining ?? null);
         }
       } catch {
         if (isMounted) {
@@ -268,19 +300,21 @@ function GameLobbyPage() {
       isMounted = false;
       window.clearInterval(intervalId);
     };
-  }, [fetchCurrentRound, fetchGameState, fetchPlayers, fetchRoundResults, resolvedGameId, resolvedRoundId]);
+  }, [resolvedGameId, resolvedRoundId]);
+
+  const hasActiveCountdown = countdownSeconds !== null;
 
   useEffect(() => {
-    const nextSecondsRemaining = roundResults?.secondsRemaining ?? gameState?.secondsRemaining ?? null;
-    if (nextSecondsRemaining === null || nextSecondsRemaining === undefined) {
-      setCountdownSeconds(null);
+    if (!hasActiveCountdown) {
       return;
     }
 
-    setCountdownSeconds(nextSecondsRemaining);
     const intervalId = window.setInterval(() => {
       setCountdownSeconds((previous) => {
-        if (previous === null) return null;
+        if (previous === null) {
+          return null;
+        }
+
         return Math.max(0, previous - 1);
       });
     }, 1000);
@@ -288,7 +322,7 @@ function GameLobbyPage() {
     return () => {
       window.clearInterval(intervalId);
     };
-  }, [gameState?.secondsRemaining, roundResults?.secondsRemaining]);
+  }, [hasActiveCountdown]);
 
   const fetchCategoriesByDifficulty = async (difficulty: "easy" | "medium" | "hard") => {
     setSelectedDifficulty(difficulty);
