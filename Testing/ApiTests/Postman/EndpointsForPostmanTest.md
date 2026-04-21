@@ -1,0 +1,12 @@
+/*
+GET All Categories
+GET Categories by difficulty
+POST Create game
+POST Join game
+GET Game players
+POST start round
+GET current round
+POST Create challange
+POST submit round words
+GET round results
+*/
