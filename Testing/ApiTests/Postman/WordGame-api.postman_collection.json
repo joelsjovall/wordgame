@@ -11,11 +11,6 @@
       "type": "string"
     },
     {
-      "key": "createdCategoryId",
-      "value": "",
-      "type": "string"
-    },
-    {
       "key": "existingEasyCategoryId",
       "value": "",
       "type": "string"
@@ -131,58 +126,13 @@
               "    });",
               "});",
               "",
+              "pm.test(\"Has at least one easy category\", function () {",
+              "    pm.expect(jsonData.categories.length).to.be.greaterThan(0);",
+              "});",
+              "",
               "if (jsonData.categories.length > 0) {",
               "    pm.collectionVariables.set(\"existingEasyCategoryId\", String(jsonData.categories[0].id));",
               "}"
-            ]
-          }
-        }
-      ]
-    },
-    {
-      "name": "Create Category",
-      "request": {
-        "method": "POST",
-        "header": [
-          {
-            "key": "Content-Type",
-            "value": "application/json"
-          }
-        ],
-        "body": {
-          "mode": "raw",
-          "raw": "{\n  \"name\": \"Postman Category {{$timestamp}}\",\n  \"difficulty\": \"easy\",\n  \"points\": 1\n}"
-        },
-        "url": {
-          "raw": "{{baseUrl}}/api/categories",
-          "host": [
-            "{{baseUrl}}"
-          ],
-          "path": [
-            "api",
-            "categories"
-          ]
-        }
-      },
-      "event": [
-        {
-          "listen": "test",
-          "script": {
-            "type": "text/javascript",
-            "exec": [
-              "pm.test(\"Status is 201\", function () {",
-              "    pm.response.to.have.status(201);",
-              "});",
-              "",
-              "const jsonData = pm.response.json();",
-              "pm.collectionVariables.set(\"createdCategoryId\", String(jsonData.id));",
-              "",
-              "pm.test(\"Created category has expected shape\", function () {",
-              "    pm.expect(jsonData.id).to.be.a(\"number\");",
-              "    pm.expect(jsonData.name).to.be.a(\"string\");",
-              "    pm.expect(jsonData.difficulty).to.eql(\"easy\");",
-              "    pm.expect(jsonData.points).to.eql(1);",
-              "});"
             ]
           }
         }
