@@ -238,7 +238,9 @@ function GameLobbyPage() {
   };
 
 
-  const fetchLiveDrafts = useCallback(async (roundIdOverride?: number) => {
+
+
+  const fetchLiveDrafts = async (roundIdOverride?: number) => {
     const roundId = roundIdOverride ?? resolvedRoundId;
     if (!Number.isFinite(roundId) || roundId <= 0) {
       setLiveDrafts([]);
@@ -257,14 +259,20 @@ function GameLobbyPage() {
     } catch {
       setLiveDrafts([]);
     }
-  }, [resolvedRoundId]);
+  };
 
 
-  const syncLiveDraft = useCallback(async (roundId: number, playerId: number, nextCurrentInput: string, nextWords: string[]) => {
+
+
+  const syncLiveDraft = async (
+    roundId: number,
+    playerId: number,
+    nextCurrentInput: string,
+    nextWords: string[]
+  ) => {
     if (!Number.isFinite(roundId) || roundId <= 0 || playerId <= 0) {
       return;
     }
-
 
     try {
       await fetch(`${API_BASE_URL}/api/rounds/${roundId}/drafts`, {
@@ -281,7 +289,8 @@ function GameLobbyPage() {
     } catch {
       // Best effort only while typing.
     }
-  }, []);
+  };
+
 
   useEffect(() => {
     if (!Number.isFinite(resolvedGameId) || resolvedGameId <= 0) {
