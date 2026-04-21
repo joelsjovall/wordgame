@@ -7,30 +7,36 @@ namespace WordGame.UnitTests.Services;
 
 public class WordValidationServiceTests
 {
-    [Theory]
+    [Theory]    // betyder att samma test körs flera gånger med olika testdata.
+
     [InlineData(" Volvo ", "volvo")]
     [InlineData("BMW", "bmw")]
     [InlineData("  Audi", "audi")]
     public void NormalizeWord_TrimsWhitespaceAndIgnoresCase(string input, string expected)
     {
         var service = CreateService();
-
         var normalizedWord = service.NormalizeWord(input);
-
-        Assert.Equal(expected, normalizedWord);
+        Assert.Equal(expected, normalizedWord); // Kontrollerar att resultatet blev exakt det vi förväntade oss.
     }
 
-    [Fact]
+
+    [Fact] // [Fact] betyder att testet körs en gång med den testdata som finns inne i metoden.
     public async Task ValidateWordsAsync_CountsOnlyUniqueValidWords()
     {
+
         var service = CreateService(
+            // Volvo är ett giltigt aktivt ord i kategori 10.
             new CategoryWord { Id = 1, CategoryId = 10, Word = "Volvo", NormalizedWord = "volvo", IsActive = true },
+            // BMW är också ett giltigt aktivt ord i kategori 10.
             new CategoryWord { Id = 2, CategoryId = 10, Word = "BMW", NormalizedWord = "bmw", IsActive = true },
+            // Audi finns också i kategorin, men används inte i just detta input.
             new CategoryWord { Id = 3, CategoryId = 10, Word = "Audi", NormalizedWord = "audi", IsActive = true });
 
         var result = await service.ValidateWordsAsync(10, [" Volvo ", "BMW", "bmw", "Invalid"]);
 
         Assert.Equal(2, result.ValidUniqueWordCount);
+
+        // Assert.Collection kontrollerar varje ordresultat i exakt den ordning de skickades in.
         Assert.Collection(
             result.Words,
             first =>
@@ -74,6 +80,7 @@ public class WordValidationServiceTests
             new CategoryWord { Id = 1, CategoryId = 10, Word = "Volvo", NormalizedWord = "volvo", IsActive = true },
             new CategoryWord { Id = 2, CategoryId = 20, Word = "Apple", NormalizedWord = "apple", IsActive = true });
 
+
         var result = await service.ValidateWordsAsync(10, ["Volvo", "Apple"]);
 
         Assert.Equal(1, result.ValidUniqueWordCount);
@@ -85,6 +92,7 @@ public class WordValidationServiceTests
     [Fact]
     public async Task ValidateWordsAsync_IgnoresInactiveCategoryWords()
     {
+        // Arrange: skapa två ord i samma kategori.
         var service = CreateService(
             new CategoryWord { Id = 1, CategoryId = 10, Word = "Volvo", NormalizedWord = "volvo", IsActive = true },
             new CategoryWord { Id = 2, CategoryId = 10, Word = "Saab", NormalizedWord = "saab", IsActive = false });
@@ -110,7 +118,6 @@ public class WordValidationServiceTests
             IReadOnlyList<CategoryWord> words = _categoryWords
                 .Where(categoryWord => categoryWord.CategoryId == categoryId)
                 .ToList();
-
             return Task.FromResult(words);
         }
     }
