@@ -174,7 +174,7 @@ function GameLobbyPage() {
     return Number.isFinite(idAsNumber) && idAsNumber > 0 ? idAsNumber : 0;
   })();
 
-  const fetchPlayers = async () => {
+  const fetchPlayers = useCallback(async () => {
     if (!Number.isFinite(resolvedGameId) || resolvedGameId <= 0) return;
 
     const response = await fetch(`${API_BASE_URL}/api/games/${resolvedGameId}/players`);
@@ -184,9 +184,9 @@ function GameLobbyPage() {
 
     const data = (await response.json()) as Player[];
     setPlayers(data);
-  };
+  }, [resolvedGameId]);
 
-  const fetchGameState = async () => {
+  const fetchGameState = useCallback(async () => {
     if (!Number.isFinite(resolvedGameId) || resolvedGameId <= 0) return null;
 
     const response = await fetch(`${API_BASE_URL}/api/games/${resolvedGameId}/state`);
@@ -204,9 +204,9 @@ function GameLobbyPage() {
     }
 
     return data;
-  };
+  }, [resolvedGameId]);
 
-  const fetchRoundResults = async (roundIdOverride?: number) => {
+  const fetchRoundResults = useCallback(async (roundIdOverride?: number) => {
     const roundId = roundIdOverride ?? resolvedRoundId;
     if (!Number.isFinite(roundId) || roundId <= 0) {
       setRoundResults(null);
@@ -235,12 +235,12 @@ function GameLobbyPage() {
     } catch {
       setRoundResults(null);
     }
-  };
+  }, [resolvedRoundId]);
 
 
 
 
-  const fetchLiveDrafts = async (roundIdOverride?: number) => {
+  const fetchLiveDrafts = useCallback(async (roundIdOverride?: number) => {
     const roundId = roundIdOverride ?? resolvedRoundId;
     if (!Number.isFinite(roundId) || roundId <= 0) {
       setLiveDrafts([]);
@@ -259,12 +259,12 @@ function GameLobbyPage() {
     } catch {
       setLiveDrafts([]);
     }
-  };
+  }, [resolvedRoundId]);
 
 
 
 
-  const syncLiveDraft = async (
+  const syncLiveDraft = useCallback(async (
     roundId: number,
     playerId: number,
     nextCurrentInput: string,
@@ -289,7 +289,7 @@ function GameLobbyPage() {
     } catch {
       // Best effort only while typing.
     }
-  };
+  }, []);
 
 
   useEffect(() => {
@@ -362,7 +362,7 @@ function GameLobbyPage() {
       isMounted = false;
       window.clearInterval(intervalId);
     };
-  }, [resolvedGameId, resolvedRoundId]);
+  }, [fetchLiveDrafts, fetchRoundResults, resolvedGameId, resolvedRoundId]);
 
   const hasActiveCountdown = countdownSeconds !== null;
 
