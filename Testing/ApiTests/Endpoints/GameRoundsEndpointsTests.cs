@@ -1,6 +1,7 @@
 using System.Net;
 using System.Net.Http.Json;
 using Microsoft.AspNetCore.Mvc.Testing;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Server.Data;
 using Server.Data.Entities;
@@ -92,6 +93,63 @@ public class GameRoundsEndpointsTests(CustomWebApplicationFactory factory) : ICl
         Assert.Equal(scenario.GuestUserId, trackedChallenge.ChallengedPlayerId);
         Assert.Equal("succeeded", trackedChallenge.Status);
         Assert.Equal(2, trackedChallenge.ValidUniqueWordCount);
+    }
+
+    [Fact]
+    public async Task RoundDrafts_CanBeSharedLive_AndAreClearedAfterSubmission()
+    {
+        var scenario = await SeedRoundScenarioAsync();
+
+        using var client = CreateClient();
+
+        var updateDraftResponse = await client.PutAsJsonAsync($"/api/rounds/{scenario.RoundId}/drafts", new
+        {
+            playerId = scenario.GuestUserId,
+            currentInput = "cher",
+            words = new[] { "apple", "banana" }
+        });
+
+        Assert.Equal(HttpStatusCode.OK, updateDraftResponse.StatusCode);
+
+        var draftsResponse = await client.GetAsync($"/api/rounds/{scenario.RoundId}/drafts");
+
+        Assert.Equal(HttpStatusCode.OK, draftsResponse.StatusCode);
+
+        var drafts = await draftsResponse.Content.ReadFromJsonAsync<List<RoundDraftDto>>();
+        Assert.NotNull(drafts);
+        Assert.Equal(2, drafts.Count);
+
+        var guestDraft = Assert.Single(drafts, draft => draft.PlayerId == scenario.GuestUserId);
+        Assert.Equal("GuestPlayer", guestDraft.Username);
+        Assert.Equal("cher", guestDraft.CurrentInput);
+        Assert.Equal(["apple", "banana"], guestDraft.Words);
+
+        var hostDraft = Assert.Single(drafts, draft => draft.PlayerId == scenario.HostUserId);
+        Assert.Equal("HostPlayer", hostDraft.Username);
+        Assert.Empty(hostDraft.Words);
+        Assert.Equal(string.Empty, hostDraft.CurrentInput);
+
+        var challengeResponse = await client.PostAsJsonAsync($"/api/rounds/{scenario.RoundId}/challenges", new
+        {
+            challengedPlayerId = scenario.GuestUserId,
+            callerPlayerId = scenario.HostUserId,
+            requiredWordCount = 2,
+            timeLimitSeconds = 60
+        });
+
+        Assert.Equal(HttpStatusCode.Created, challengeResponse.StatusCode);
+
+        var submissionResponse = await client.PostAsJsonAsync($"/api/rounds/{scenario.RoundId}/submissions", new
+        {
+            playerId = scenario.GuestUserId,
+            words = new[] { "apple", "banana" }
+        });
+
+        Assert.Equal(HttpStatusCode.OK, submissionResponse.StatusCode);
+
+        using var scope = factory.Services.CreateScope();
+        var dbContext = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+        Assert.Equal(0, await dbContext.RoundLiveDrafts.CountAsync());
     }
 
     private HttpClient CreateClient()
@@ -251,5 +309,13 @@ public class GameRoundsEndpointsTests(CustomWebApplicationFactory factory) : ICl
         public int RequiredWordCount { get; set; }
         public string Status { get; set; } = string.Empty;
         public int ValidUniqueWordCount { get; set; }
+    }
+
+    public sealed class RoundDraftDto
+    {
+        public int PlayerId { get; set; }
+        public string Username { get; set; } = string.Empty;
+        public string CurrentInput { get; set; } = string.Empty;
+        public List<string> Words { get; set; } = [];
     }
 }

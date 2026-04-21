@@ -70,6 +70,14 @@ type StartRoundResponse = {
   roundId: number;
 };
 
+type LiveRoundDraft = {
+  playerId: number;
+  username: string;
+  currentInput: string;
+  words: string[];
+  updatedAt?: string | null;
+};
+
 type LocalResult = {
   word: string;
   correct: boolean;
@@ -114,6 +122,7 @@ function GameLobbyPage() {
   const [submissionError, setSubmissionError] = useState("");
   const [submissionSummary, setSubmissionSummary] = useState<RoundSubmissionResponse | null>(null);
   const [roundResults, setRoundResults] = useState<RoundResultsResponse | null>(null);
+  const [liveDrafts, setLiveDrafts] = useState<LiveRoundDraft[]>([]);
   const [resolvedRoundId, setResolvedRoundId] = useState(
     Number.isFinite(roundIdFromQuery) && roundIdFromQuery > 0 ? roundIdFromQuery : 0
   );
@@ -181,6 +190,48 @@ function GameLobbyPage() {
     }
   }, [resolvedRoundId]);
 
+  const fetchLiveDrafts = useCallback(async (roundIdOverride?: number) => {
+    const roundId = roundIdOverride ?? resolvedRoundId;
+    if (!Number.isFinite(roundId) || roundId <= 0) {
+      setLiveDrafts([]);
+      return;
+    }
+
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/rounds/${roundId}/drafts`);
+      if (!response.ok) {
+        return;
+      }
+
+      const data = (await response.json()) as LiveRoundDraft[];
+      setLiveDrafts(Array.isArray(data) ? data : []);
+    } catch {
+      // Best effort refresh only.
+    }
+  }, [resolvedRoundId]);
+
+  const syncLiveDraft = useCallback(async (roundId: number, playerId: number, nextCurrentWord: string, nextWords: string[]) => {
+    if (!Number.isFinite(roundId) || roundId <= 0 || playerId <= 0) {
+      return;
+    }
+
+    try {
+      await fetch(`${API_BASE_URL}/api/rounds/${roundId}/drafts`, {
+        method: "PUT",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          playerId,
+          currentInput: nextCurrentWord,
+          words: nextWords,
+        }),
+      });
+    } catch {
+      // Keep typing uninterrupted if sync fails transiently.
+    }
+  }, []);
+
   useEffect(() => {
     if (!Number.isFinite(resolvedGameId) || resolvedGameId <= 0) {
       return;
@@ -194,6 +245,9 @@ function GameLobbyPage() {
         const currentRoundId = resolvedRoundId > 0 ? resolvedRoundId : await fetchCurrentRound();
         if (currentRoundId > 0) {
           await fetchRoundResults(currentRoundId);
+          await fetchLiveDrafts(currentRoundId);
+        } else if (isMounted) {
+          setLiveDrafts([]);
         }
       } catch {
         if (isMounted) {
@@ -211,7 +265,36 @@ function GameLobbyPage() {
       isMounted = false;
       window.clearInterval(intervalId);
     };
-  }, [fetchCurrentRound, fetchPlayers, fetchRoundResults, resolvedGameId, resolvedRoundId]);
+  }, [fetchCurrentRound, fetchLiveDrafts, fetchPlayers, fetchRoundResults, resolvedGameId, resolvedRoundId]);
+
+  useEffect(() => {
+    if (!Number.isFinite(resolvedRoundId) || resolvedRoundId <= 0 || resolvedPlayerId <= 0) {
+      return;
+    }
+
+    const timeoutId = window.setTimeout(() => {
+      void syncLiveDraft(resolvedRoundId, resolvedPlayerId, currentWord, submittedWords);
+    }, 250);
+
+    return () => {
+      window.clearTimeout(timeoutId);
+    };
+  }, [currentWord, resolvedPlayerId, resolvedRoundId, submittedWords, syncLiveDraft]);
+
+  useEffect(() => {
+    if (!Number.isFinite(resolvedRoundId) || resolvedRoundId <= 0) {
+      return;
+    }
+
+    void fetchLiveDrafts(resolvedRoundId);
+    const intervalId = window.setInterval(() => {
+      void fetchLiveDrafts(resolvedRoundId);
+    }, 800);
+
+    return () => {
+      window.clearInterval(intervalId);
+    };
+  }, [fetchLiveDrafts, resolvedRoundId]);
 
   const fetchCategoriesByDifficulty = async (difficulty: "easy" | "medium" | "hard") => {
     setSelectedDifficulty(difficulty);
@@ -369,7 +452,9 @@ function GameLobbyPage() {
         }))
       );
       setSubmittedWords([]);
+      setCurrentWord("");
       await fetchRoundResults(resolvedRoundId);
+      await fetchLiveDrafts(resolvedRoundId);
       await fetchPlayers();
     } catch (error) {
       setSubmissionError(
@@ -401,6 +486,19 @@ function GameLobbyPage() {
   })) ?? [];
   const topPlayers = displayPlayersFromRoundResults.length ? displayPlayersFromRoundResults.slice(0, 4) : displayPlayers;
   const shownCategoryName = selectedCategoryName || categories.find((category) => String(category.id) === selectedCategory)?.name;
+  const liveDraftsByPlayer = displayPlayers.map((player) => {
+    const playerId = Number(player.id);
+    const draft = liveDrafts.find((candidate) => candidate.playerId === playerId);
+
+    return {
+      id: player.id,
+      playerId,
+      username: player.username,
+      currentInput: draft?.currentInput ?? "",
+      words: draft?.words ?? [],
+      isYou: playerId === resolvedPlayerId,
+    };
+  });
 
   return (
     <main className="page">
@@ -481,6 +579,27 @@ function GameLobbyPage() {
                   {submissionSummary.succeeded ? "Challenge succeeded." : "Challenge failed."} Awarded points: {submissionSummary.awardedPoints}
                 </p>
               )}
+            </div>
+
+            <div className="sketch-live-board">
+              <h3 className="sketch-live-title">Live answers</h3>
+              <div className="sketch-live-grid">
+                {liveDraftsByPlayer.map((draftPlayer, index) => (
+                  <article className="sketch-live-card" key={draftPlayer.id ?? index}>
+                    <p className="sketch-live-player">
+                      {draftPlayer.username || `Player ${index + 1}`}{draftPlayer.isYou ? " (you)" : ""}
+                    </p>
+                    {draftPlayer.words.length > 0 ? (
+                      <p className="sketch-live-words">{draftPlayer.words.join(", ")}</p>
+                    ) : (
+                      <p className="sketch-live-empty">No shared answers yet</p>
+                    )}
+                    {draftPlayer.currentInput.trim() ? (
+                      <p className="sketch-live-typing">Typing: {draftPlayer.currentInput}</p>
+                    ) : null}
+                  </article>
+                ))}
+              </div>
             </div>
 
             <div className="sketch-stats-block">
