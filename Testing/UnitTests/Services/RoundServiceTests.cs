@@ -2,35 +2,43 @@ using Server.Data.Entities;
 using Server.Data.Repositories;
 using Server.Services;
 using Xunit;
+//importerar det vi behöver (entities, repositories, services och xunit)
 
 namespace WordGame.UnitTests.Services;
 
-public class RoundServiceTests
+public class RoundServiceTests  // innehåller unit tests för logiken för rundor och bud
 {
-    [Fact]
+    [Fact]  //testet körs en gång
     public void PlaceBid_AllowsFirstBidInBiddingRound()
+    //testet kontrollerar att första budet får läggas när rundan är i bidding status
     {
         var service = CreateService();
-        var round = CreateRound();
+        var round = CreateRound();  //skapar en låtsasrunda
 
         var result = service.PlaceBid(round, playerId: 5, bidCount: 3);
+        //player 5 lägger bud att den kan skriva 3 ord 
 
         Assert.Equal(3, round.HighestBidCount);
         Assert.Equal(5, round.HighestBidPlayerId);
+        //kontrollerar att sidan uppdaterade det
         Assert.Single(round.Bids);
+        //kollar att budhistoriken innehåller exakt 1 bud 
         Assert.Equal(3, result.Bid.BidCount);
         Assert.Equal(5, result.Bid.PlayerId);
-    }
+    }   //kontrollerar att resultaten innehåller rätt bud och rätt spelare
 
     [Fact]
     public void PlaceBid_RequiresBidToBeHigherThanCurrentHighestBid()
+    //detta test kontrollerar att man inte får lägga samma eller lägre bud än det högsta budet
     {
         var service = CreateService();
         var round = CreateRound(highestBidCount: 4, highestBidPlayerId: 2);
+        //runda där spelare 2 redan lagt budet 4 
 
         var exception = Assert.Throws<InvalidOperationException>(() => service.PlaceBid(round, playerId: 3, bidCount: 4));
+        //spelare 3 försöker buda 4 (samma som redan budats)
 
-        Assert.Equal("A new bid must be higher than the current highest bid.", exception.Message);
+        Assert.Equal("A new bid must be higher than the current highest bid.", exception.Message);  //blir därför fel
     }
 
     [Fact]

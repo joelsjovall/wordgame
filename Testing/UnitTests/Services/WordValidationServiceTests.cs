@@ -7,72 +7,95 @@ namespace WordGame.UnitTests.Services;
 
 public class WordValidationServiceTests
 {
-    [Theory]    // betyder att samma test körs flera gånger med olika testdata.
+    [Theory]   // - kör testet med flera olika ord/testdata
+               // test 1 - normalisering 
 
     [InlineData(" Volvo ", "volvo")]
     [InlineData("BMW", "bmw")]
     [InlineData("  Audi", "audi")]
+    // testexempel - säger ''Skicka in ordet, förvänta detta resultatet'' 
+    //input volvo, expected volvo
+    //samma med mellanslag osv
+
     public void NormalizeWord_TrimsWhitespaceAndIgnoresCase(string input, string expected)
+
+    //tar bort mellanslag och bryr sig inte om stora eller små bokstäver
+
     {
         var service = CreateService();
         var normalizedWord = service.NormalizeWord(input);
-        Assert.Equal(expected, normalizedWord); // Kontrollerar att resultatet blev exakt det vi förväntade oss.
+        Assert.Equal(expected, normalizedWord);
     }
 
 
-    [Fact] // [Fact] betyder att testet körs en gång med den testdata som finns inne i metoden.
+
+
+    [Fact] // betyder att testet körs 1 gång 
     public async Task ValidateWordsAsync_CountsOnlyUniqueValidWords()
+    //räknar bara unika giltiga ord = correct och i rätt kategori
     {
 
         var service = CreateService(
-            // Volvo är ett giltigt aktivt ord i kategori 10.
+            //skickar in fake ord som ska fungera som testdatabas
+
             new CategoryWord { Id = 1, CategoryId = 10, Word = "Volvo", NormalizedWord = "volvo", IsActive = true },
-            // BMW är också ett giltigt aktivt ord i kategori 10.
+
             new CategoryWord { Id = 2, CategoryId = 10, Word = "BMW", NormalizedWord = "bmw", IsActive = true },
-            // Audi finns också i kategorin, men används inte i just detta input.
+
             new CategoryWord { Id = 3, CategoryId = 10, Word = "Audi", NormalizedWord = "audi", IsActive = true });
 
+
         var result = await service.ValidateWordsAsync(10, [" Volvo ", "BMW", "bmw", "Invalid"]);
+        //skickar in spelarens ord och kontrollerar vilka som är giltiga
+        //Volvo finns som volvo = giltigt
+        //BMW finns = giltigt, bmw finns men BMW har redan använts = dublett 
+        //invalid finns inte = ogiltigt
 
         Assert.Equal(2, result.ValidUniqueWordCount);
 
-        // Assert.Collection kontrollerar varje ordresultat i exakt den ordning de skickades in.
         Assert.Collection(
             result.Words,
-            first =>
+            first =>        //kollar det första inskickade ordet
             {
                 Assert.Equal(" Volvo ", first.OriginalWord);
                 Assert.Equal("volvo", first.NormalizedWord);
-                Assert.True(first.IsValid);
-                Assert.False(first.IsDuplicate);
-                Assert.Equal(1, first.MatchedCategoryWordId);
+                //ordet har ''städats'' till ''volvo'' från '' Volvo ''
+                Assert.True(first.IsValid); //kollar att ordet är giltigt
+                Assert.False(first.IsDuplicate); //kollar att volvo inte är dublett
+                Assert.Equal(1, first.MatchedCategoryWordId); //kollar att volvo matchar databasordet med id 1 
             },
-            second =>
+            second =>   //andra inskickade ordet
             {
                 Assert.Equal("BMW", second.OriginalWord);
                 Assert.Equal("bmw", second.NormalizedWord);
-                Assert.True(second.IsValid);
-                Assert.False(second.IsDuplicate);
-                Assert.Equal(2, second.MatchedCategoryWordId);
+                Assert.True(second.IsValid);    //bmw är giltigt
+                Assert.False(second.IsDuplicate);   //bmw är inte dublett   
+                Assert.Equal(2, second.MatchedCategoryWordId);  //bmw matchar databas id
+                //(kontrolleras att bmw är giltigt, inte en dublett och matchar rätt databas-id)
             },
-            third =>
+            third =>    //tredje inskickade ordet
             {
                 Assert.Equal("bmw", third.OriginalWord);
                 Assert.Equal("bmw", third.NormalizedWord);
-                Assert.True(third.IsValid);
-                Assert.True(third.IsDuplicate);
-                Assert.Equal(2, third.MatchedCategoryWordId);
+                Assert.True(third.IsValid); //giltigt ord
+                Assert.True(third.IsDuplicate); // är en dublett, bmw finns redan
+                Assert.Equal(2, third.MatchedCategoryWordId);   //matchar också databas id
+
+                //kontrollerar att bmw är ett riktigt ord, men markeras som dublett eftersom BMW redan används
             },
-            fourth =>
+            fourth =>   //fjärde inskickade ordet
             {
                 Assert.Equal("Invalid", fourth.OriginalWord);
                 Assert.Equal("invalid", fourth.NormalizedWord);
-                Assert.False(fourth.IsValid);
-                Assert.False(fourth.IsDuplicate);
-                Assert.Null(fourth.MatchedCategoryWordId);
+                Assert.False(fourth.IsValid);   //ej giltigt
+                Assert.False(fourth.IsDuplicate);   //ej dublett
+                Assert.Null(fourth.MatchedCategoryWordId);  //matchar inget databasord
+
+                //här kontrolleras att invalid inte är ett giltigt ord och därför inte har något matchande databas-id
             });
     }
-
+    // 1:a testet kontrollerar att ord normaliseras, ett mellanslag tas bort, stora bokstäver blir små
+    //2:a testet skapar fake lista och skickar in 4 ord
     [Fact]
     public async Task ValidateWordsAsync_OnlyUsesWordsFromRequestedCategory()
     {
@@ -89,10 +112,10 @@ public class WordValidationServiceTests
         Assert.False(result.Words[1].IsValid);
     }
 
-    [Fact]
+    [Fact]  //vanligt test 
     public async Task ValidateWordsAsync_IgnoresInactiveCategoryWords()
     {
-        // Arrange: skapa två ord i samma kategori.
+
         var service = CreateService(
             new CategoryWord { Id = 1, CategoryId = 10, Word = "Volvo", NormalizedWord = "volvo", IsActive = true },
             new CategoryWord { Id = 2, CategoryId = 10, Word = "Saab", NormalizedWord = "saab", IsActive = false });
@@ -122,3 +145,8 @@ public class WordValidationServiceTests
         }
     }
 }
+
+//testet kontrollerar att inaktiva ord inte räknas som giltiga genom att skapa 2 testord i samma kategori, en är aktiv och en är inaktiv. Volvo räknas bara eftersom saab har IsActive false
+
+//Just nu är alla ord alltid är aktiva, men senare kanske man vill kunna stänga av vissa ord utan att radera dem.
+
