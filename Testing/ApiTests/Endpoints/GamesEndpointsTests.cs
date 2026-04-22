@@ -9,6 +9,9 @@ using Xunit;
 
 namespace WordGame.ApiTests.Endpoints;
 
+//Testar API enpointsen till de saker spelrundorna behöver för utmaningar, angivna ord, poäng, resultat och förändringar som under spelet som sker live.
+// Viktigt efter som detta kollar så att hela spellogiken funkar på sått att få och ge rätt saker med api calls, samt kollar så att poäng och resultat ges
+// på en mer detaljerad nivå än med Postman testet.
 public class GamesEndpointsTests(CustomWebApplicationFactory factory) : IClassFixture<CustomWebApplicationFactory>
 {
     [Fact]
