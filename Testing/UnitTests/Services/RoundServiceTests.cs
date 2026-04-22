@@ -107,16 +107,18 @@ public class RoundServiceTests  // innehåller unit tests för logiken för rund
 
 
     private static RoundService CreateService()
+    //testernas hjälpkod med låtsasrundor osv
     {
         return new RoundService(new FakeRoundRepository(null));
+        //ge roundservice en fake repository
     }
 
-    private static Round CreateRound(
+    private static Round CreateRound(   //skapar rundan med: 
         string status = "bidding",
         int? highestBidCount = null,
         int? highestBidPlayerId = null)
     {
-        return new Round
+        return new Round    //rundans objekt
         {
             Id = 1,
             GameId = 10,
@@ -127,10 +129,10 @@ public class RoundServiceTests  // innehåller unit tests för logiken för rund
             HighestBidPlayerId = highestBidPlayerId,
             CreatedAt = DateTime.UtcNow
         };
-    }
+    }  //round-object med standardvärden
 
     private sealed class FakeRoundRepository(Round? round) : IRoundRepository
-    {
+    {   //fakeroundrepository = låtsasdatabas för tester
         private readonly Round? _round = round;
 
         public bool SaveWasCalled { get; private set; }
@@ -152,3 +154,5 @@ public class RoundServiceTests  // innehåller unit tests för logiken för rund
         }
     }
 }
+
+//fake repository(fake databas) gör att vi kan testa RoundService utan databas.
