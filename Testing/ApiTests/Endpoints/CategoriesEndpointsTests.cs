@@ -9,6 +9,10 @@ using Xunit;
 
 namespace WordGame.ApiTests.Endpoints;
 
+// Testar category API endpoints för att försäkra att categories kan bli listade, filtrerade och skapta
+// Viktigt eftersom categories är behövda innan en runda startas, och detta testet kollar backends beteende och databasens status på en mer detaljerad nivå än Postman testet.
+// Dessa API inegrationstesterna verifierar backend beteende som databas ändringar, poäng och exakta statusförändringar. Även hitta fler buggar jämnfört med Postman testet.
+
 public class CategoriesEndpointsTests(CustomWebApplicationFactory factory) : IClassFixture<CustomWebApplicationFactory>
 {
     [Fact]

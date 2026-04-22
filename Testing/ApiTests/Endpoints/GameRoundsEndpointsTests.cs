@@ -10,6 +10,8 @@ using Xunit;
 
 namespace WordGame.ApiTests.Endpoints;
 
+// Testar spelet och lobby API endpoints för att försäkra att spelare kan skapa spel, gå med i spel, se lobbyns turer och starta ronder.
+// Viktigt efter som denna verifierar startflödet innan spelet börjar, även sparad spelar status som inte är inkluderat i Postman testet.
 public class GameRoundsEndpointsTests(CustomWebApplicationFactory factory) : IClassFixture<CustomWebApplicationFactory>
 {
     [Fact]

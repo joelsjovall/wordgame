@@ -764,10 +764,7 @@ function GameLobbyPage() {
   const canChallenge = canBid && !!highestBidCount && roundResults?.highestBidPlayerId !== resolvedPlayerId;
   const canSubmitWords = roundStatus === "challenge_active" && isMyTurn;
   const canSetOpeningBid = canChooseCategory && !!selectedCategory;
-  const correctCount = canSubmitWords
-    ? submittedWords.length
-    : (submissionSummary?.validUniqueWordCount ?? results.filter((result) => result.correct).length);
-  const answersLeft = Math.max(0, 10 - correctCount);
+
   const wordsLeftToType = Math.max(0, (highestBidCount ?? 0) - submittedWords.length);
   const roundMessage = isRoundStartPending
     ? (amIReady
@@ -812,7 +809,7 @@ function GameLobbyPage() {
     <main className="page">
       <section className="card sketch-lobby-card">
         <div className="sketch-lobby-top">
-          <div className="sketch-room-code">Room: {sessionCode || "XXXX-XXXX"}</div>
+          <div className="sketch-room-code">Your lobbycode: {sessionCode || "XXXX-XXXX"}</div>
           <Link className="rules-link sketch-back-link" to="/">
             Back
           </Link>
@@ -992,16 +989,6 @@ function GameLobbyPage() {
                   </article>
                 ))}
               </div>
-            </div>
-
-            <div className="sketch-stats-block">
-              {resolvedRoundId > 0 ? <p>Round: {resolvedRoundId}</p> : null}
-              <p>Correct answers: {correctCount}</p>
-              <p>Answer left: {answersLeft}</p>
-              {currentTurnPlayerName ? <p>Current player: {currentTurnPlayerName}</p> : null}
-              {roundResults?.challenges?.length ? (
-                <p>Round challenges tracked: {roundResults.challenges.length}</p>
-              ) : null}
             </div>
           </section>
         </div>
