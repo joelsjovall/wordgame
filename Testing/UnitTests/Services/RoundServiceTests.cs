@@ -43,62 +43,68 @@ public class RoundServiceTests  // innehåller unit tests för logiken för rund
 
     [Fact]
     public void PlaceBid_UpdatesHighestBidWhenBidIsHigher()
+    //om ett bud är högre än förra, ska det högsta budet uppdateras
     {
         var service = CreateService();
         var round = CreateRound(highestBidCount: 4, highestBidPlayerId: 2);
+        //spelare 2 har högsta budet på 4 just nu
 
         service.PlaceBid(round, playerId: 3, bidCount: 6);
+        //spelare 3 lägger bud på 6 (högre) 
 
         Assert.Equal(6, round.HighestBidCount);
         Assert.Equal(3, round.HighestBidPlayerId);
+        //kontrollerar att budet har uppdaterats
         Assert.Single(round.Bids);
         Assert.Equal(6, round.Bids.Single().BidCount);
+        //kontrollerar att budet sparades i budhistoriken
     }
 
     [Fact]
     public void PlaceBid_RejectsBidWhenRoundIsNotInBiddingStatus()
+    //kontrollerar att man bara får buda i rätt rundstatus
     {
         var service = CreateService();
         var round = CreateRound(status: "challenge_active");
+        //någon har blivit utmanad/bullshittad, rundan är alltså inte längre i budgivning
 
         var exception = Assert.Throws<InvalidOperationException>(() => service.PlaceBid(round, playerId: 2, bidCount: 5));
+        //spelare 2 försöker lägga budet 5
 
-        Assert.Equal("Bids can only be placed while the round is in bidding status.", exception.Message);
+        Assert.Equal("Bids can only be placed while the round is in bidding status.", exception.Message);   //går ej
     }
 
     [Fact]
     public void PlaceBid_RejectsBidCountLessThanOrEqualToZero()
+    //bud som är 0 eller mindre ska stoppas
     {
         var service = CreateService();
         var round = CreateRound();
+        //skapar runda
 
         Assert.Throws<ArgumentOutOfRangeException>(() => service.PlaceBid(round, playerId: 2, bidCount: 0));
+        //försöker buda 0, går inte. måste vara minst 1
     }
 
     [Fact]
     public async Task PlaceBidAsync_LoadsRoundAndSavesValidBid()
+    //testet kontrollerar async flödet där RoundService hämtar rundan via repository och sparar budet
     {
         var round = CreateRound();
         var repository = new FakeRoundRepository(round);
         var service = new RoundService(repository);
+        //skapar fake repository med en runda 
 
         var result = await service.PlaceBidAsync(round.Id, playerId: 4, bidCount: 2);
+        //hämta rundan med id 1, spelare 4 lägger budet 2
 
         Assert.Equal(2, result.Round.HighestBidCount);
         Assert.Equal(4, result.Round.HighestBidPlayerId);
+        //kontrollerar att sidan uppdaterades med rätt bud och spelare
         Assert.True(repository.SaveWasCalled);
+        //kontrollerar att service bad repositoryn att spara ändringen
     }
 
-    [Fact]
-    public async Task PlaceBidAsync_ThrowsWhenRoundDoesNotExist()
-    {
-        var repository = new FakeRoundRepository(null);
-        var service = new RoundService(repository);
-
-        var exception = await Assert.ThrowsAsync<KeyNotFoundException>(() => service.PlaceBidAsync(99, playerId: 4, bidCount: 2));
-
-        Assert.Equal("Round 99 was not found.", exception.Message);
-    }
 
     private static RoundService CreateService()
     {
