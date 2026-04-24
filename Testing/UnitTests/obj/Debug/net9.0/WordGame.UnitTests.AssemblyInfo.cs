@@ -13,7 +13,7 @@ using System.Reflection;
 [assembly: System.Reflection.AssemblyCompanyAttribute("WordGame.UnitTests")]
 [assembly: System.Reflection.AssemblyConfigurationAttribute("Debug")]
 [assembly: System.Reflection.AssemblyFileVersionAttribute("1.0.0.0")]
-[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+bfa14ffa204773f29e64a764b4737363982daba7")]
+[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+598cadb7498d77713793808a662dad40e84e9695")]
 [assembly: System.Reflection.AssemblyProductAttribute("WordGame.UnitTests")]
 [assembly: System.Reflection.AssemblyTitleAttribute("WordGame.UnitTests")]
 [assembly: System.Reflection.AssemblyVersionAttribute("1.0.0.0")]
