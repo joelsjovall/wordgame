@@ -12,6 +12,7 @@ appsettings.*.local.json
 
 # Frontend build output and dependencies
 Frontend/node_modules/
+Testing/PlaywrightTests/node_modules/
 Frontend/dist/
 Frontend/dist-ssr/
 .dotnet/
