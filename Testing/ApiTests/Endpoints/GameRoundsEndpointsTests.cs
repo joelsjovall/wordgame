@@ -72,7 +72,7 @@ public class GameRoundsEndpointsTests(CustomWebApplicationFactory factory) : ICl
         Assert.Equal(2, submission.RequiredWordCount);
         Assert.Equal(2, submission.ValidUniqueWordCount);
         Assert.True(submission.Succeeded);
-        Assert.Equal(4, submission.AwardedPoints);
+        Assert.Equal(54, submission.AwardedPoints);
         Assert.Equal(3, submission.Words.Count);
         Assert.Equal(2, submission.Words.Count(word => word.IsAccepted));
 
@@ -89,7 +89,7 @@ public class GameRoundsEndpointsTests(CustomWebApplicationFactory factory) : ICl
 
         var topPlayer = Assert.Single(results.Players, player => player.UserId == scenario.GuestUserId);
         Assert.Equal("GuestPlayer", topPlayer.Username);
-        Assert.Equal(4, topPlayer.Score);
+        Assert.Equal(54, topPlayer.Score);
 
         var trackedChallenge = Assert.Single(results.Challenges);
         Assert.Equal(scenario.GuestUserId, trackedChallenge.ChallengedPlayerId);
@@ -140,6 +140,75 @@ public class GameRoundsEndpointsTests(CustomWebApplicationFactory factory) : ICl
         Assert.Equal("HostPlayer", hostDraft.Username);
         Assert.Empty(hostDraft.Words);
         Assert.Equal(string.Empty, hostDraft.CurrentInput);
+    }
+
+    [Fact]
+    public async Task ValidateWord_CompletesChallengeImmediately_WhenRequiredWordCountIsReached()
+    {
+        var scenario = await SeedRoundScenarioAsync();
+
+        using var client = CreateClient();
+
+        var challengeResponse = await client.PostAsJsonAsync($"/api/rounds/{scenario.RoundId}/challenges", new
+        {
+            challengedPlayerId = scenario.GuestUserId,
+            callerPlayerId = scenario.HostUserId,
+            requiredWordCount = 2,
+            timeLimitSeconds = 60
+        });
+
+        Assert.Equal(HttpStatusCode.Created, challengeResponse.StatusCode);
+
+        var firstWordResponse = await client.PostAsJsonAsync($"/api/rounds/{scenario.RoundId}/validate-word", new
+        {
+            playerId = scenario.GuestUserId,
+            word = "apple",
+            existingWords = Array.Empty<string>()
+        });
+
+        Assert.Equal(HttpStatusCode.OK, firstWordResponse.StatusCode);
+
+        var secondWordResponse = await client.PostAsJsonAsync($"/api/rounds/{scenario.RoundId}/validate-word", new
+        {
+            playerId = scenario.GuestUserId,
+            word = "banana",
+            existingWords = new[] { "apple" }
+        });
+
+        Assert.Equal(HttpStatusCode.OK, secondWordResponse.StatusCode);
+
+        var secondWordPayload = await secondWordResponse.Content.ReadFromJsonAsync<ValidateWordResultResponse>();
+        Assert.NotNull(secondWordPayload);
+        Assert.True(secondWordPayload.IsAccepted);
+        Assert.True(secondWordPayload.ChallengeCompleted);
+        Assert.True(secondWordPayload.ChallengeSucceeded);
+        Assert.Equal(2, secondWordPayload.ValidUniqueWordCount);
+        Assert.Equal(54, secondWordPayload.AwardedPoints);
+
+        var resultsResponse = await client.GetAsync($"/api/rounds/{scenario.RoundId}/results");
+
+        Assert.Equal(HttpStatusCode.OK, resultsResponse.StatusCode);
+
+        var results = await resultsResponse.Content.ReadFromJsonAsync<RoundResultsResponse>();
+        Assert.NotNull(results);
+        Assert.Equal("completed", results.Status);
+
+        var guestPlayer = Assert.Single(results.Players, player => player.UserId == scenario.GuestUserId);
+        Assert.Equal(54, guestPlayer.Score);
+
+        var resolvedChallenge = Assert.Single(results.Challenges);
+        Assert.Equal("succeeded", resolvedChallenge.Status);
+        Assert.Equal(2, resolvedChallenge.ValidUniqueWordCount);
+
+        var draftsResponse = await client.GetAsync($"/api/rounds/{scenario.RoundId}/drafts");
+        var drafts = await draftsResponse.Content.ReadFromJsonAsync<List<RoundDraftResponse>>();
+
+        Assert.NotNull(drafts);
+        Assert.All(drafts, draft =>
+        {
+            Assert.Equal(string.Empty, draft.CurrentInput);
+            Assert.Empty(draft.Words);
+        });
     }
 
     private HttpClient CreateClient()
@@ -275,9 +344,24 @@ public class GameRoundsEndpointsTests(CustomWebApplicationFactory factory) : ICl
     {
         public int RoundId { get; set; }
         public int GameId { get; set; }
+        public string Status { get; set; } = string.Empty;
         public CategoryDto Category { get; set; } = new();
         public List<PlayerDto> Players { get; set; } = [];
         public List<ChallengeDto> Challenges { get; set; } = [];
+    }
+
+    public sealed class ValidateWordResultResponse
+    {
+        public string OriginalWord { get; set; } = string.Empty;
+        public string NormalizedWord { get; set; } = string.Empty;
+        public bool IsValid { get; set; }
+        public bool IsDuplicate { get; set; }
+        public bool IsAccepted { get; set; }
+        public int ValidUniqueWordCount { get; set; }
+        public int RequiredWordCount { get; set; }
+        public bool ChallengeCompleted { get; set; }
+        public bool? ChallengeSucceeded { get; set; }
+        public int? AwardedPoints { get; set; }
     }
 
     public sealed class CategoryDto

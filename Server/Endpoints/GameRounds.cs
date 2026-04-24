@@ -239,40 +239,11 @@ public static class GameRoundsEndpoints
 
             dbContext.SubmittedWords.AddRange(submittedWords);
 
-            var succeeded = validationResult.ValidUniqueWordCount >= challenge.RequiredWordCount;
-            var pointsPerWord = round.Category?.Points ?? 1;
-            var awardedPoints = validationResult.ValidUniqueWordCount * pointsPerWord;
-
-            challenge.Status = succeeded ? "succeeded" : "failed";
-            challenge.ResolvedAt = DateTime.UtcNow;
-
-            var gamePlayer = await dbContext.GamePlayers
-                .FirstOrDefaultAsync(
-                    x => x.GameId == round.GameId && x.UserId == request.PlayerId,
-                    cancellationToken);
-
-            if (gamePlayer is not null && awardedPoints > 0)
-            {
-                gamePlayer.Score += awardedPoints;
-            }
-
-            var orderedPlayers = await dbContext.GamePlayers
-                .AsNoTracking()
-                .Where(x => x.GameId == round.GameId)
-                .OrderBy(x => x.TurnOrder)
-                .ToListAsync(cancellationToken);
-
-            round.Status = "completed";
-            round.CurrentPlayerId = GetNextPlayerId(orderedPlayers, request.PlayerId);
-
-            if (round.CurrentPlayerId.HasValue)
-            {
-                await gameFlowService.ResetPlayersReadyStateAsync(round.GameId, cancellationToken);
-            }
-
-            roundLiveDraftService.ClearRound(roundId);
-
-            await dbContext.SaveChangesAsync(cancellationToken);
+            var resolution = await gameFlowService.ResolveChallengeAsync(
+                round,
+                challenge,
+                validationResult.ValidUniqueWordCount,
+                cancellationToken);
 
             return Results.Ok(new
             {
@@ -280,9 +251,9 @@ public static class GameRoundsEndpoints
                 playerId = request.PlayerId,
                 challengeId = challenge.Id,
                 requiredWordCount = challenge.RequiredWordCount,
-                validUniqueWordCount = validationResult.ValidUniqueWordCount,
-                succeeded,
-                awardedPoints,
+                validUniqueWordCount = resolution.ValidUniqueWordCount,
+                succeeded = resolution.Succeeded,
+                awardedPoints = resolution.AwardedPoints,
                 words = validationResult.Words.Select(word => new
                 {
                     originalWord = word.OriginalWord,
@@ -552,7 +523,6 @@ public static class GameRoundsEndpoints
 
             var validationWords = request.ExistingWords ?? [];
             var activeChallenge = await dbContext.Challenges
-                .AsNoTracking()
                 .Where(x => x.RoundId == roundId &&
                             x.ChallengedPlayerId == request.PlayerId &&
                             x.ResolvedAt == null)
@@ -596,13 +566,27 @@ public static class GameRoundsEndpoints
                 await dbContext.SaveChangesAsync(cancellationToken);
             }
 
-            roundLiveDraftService.UpdateDraft(
-                roundId,
-                request.PlayerId,
-                string.Empty,
-                validationResult.Words
-                    .Where(wordEntry => wordEntry.IsValid && !wordEntry.IsDuplicate)
-                    .Select(wordEntry => wordEntry.OriginalWord));
+            ChallengeResolutionResult? resolution = null;
+            var validUniqueWordCount = validationResult.Words.Count(wordEntry => wordEntry.IsValid && !wordEntry.IsDuplicate);
+            if (validUniqueWordCount >= activeChallenge.RequiredWordCount)
+            {
+                resolution = await gameFlowService.ResolveChallengeAsync(
+                    round,
+                    activeChallenge,
+                    validUniqueWordCount,
+                    cancellationToken);
+            }
+
+            if (resolution is null)
+            {
+                roundLiveDraftService.UpdateDraft(
+                    roundId,
+                    request.PlayerId,
+                    string.Empty,
+                    validationResult.Words
+                        .Where(wordEntry => wordEntry.IsValid && !wordEntry.IsDuplicate)
+                        .Select(wordEntry => wordEntry.OriginalWord));
+            }
 
             return Results.Ok(new
             {
@@ -610,7 +594,12 @@ public static class GameRoundsEndpoints
                 normalizedWord = latestWord.NormalizedWord,
                 isValid = latestWord.IsValid,
                 isDuplicate = latestWord.IsDuplicate,
-                isAccepted = latestWord.IsValid && !latestWord.IsDuplicate
+                isAccepted = latestWord.IsValid && !latestWord.IsDuplicate,
+                validUniqueWordCount,
+                requiredWordCount = activeChallenge.RequiredWordCount,
+                challengeCompleted = resolution is not null,
+                challengeSucceeded = resolution?.Succeeded,
+                awardedPoints = resolution?.AwardedPoints
             });
         });
 
