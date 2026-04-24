@@ -1,0 +1,10 @@
+**/bin
+**/obj
+Frontend/node_modules
+Frontend/dist
+Testing/PlaywrightTests/node_modules
+.git
+.github
+.vscode
+.vs
+README.md

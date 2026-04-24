@@ -52,6 +52,10 @@
               "target": "Package",
               "version": "[9.0.0, )"
             },
+            "Nito.AsyncEx": {
+              "target": "Package",
+              "version": "[5.1.2, )"
+            },
             "Pomelo.EntityFrameworkCore.MySql": {
               "target": "Package",
               "version": "[9.0.0, )"

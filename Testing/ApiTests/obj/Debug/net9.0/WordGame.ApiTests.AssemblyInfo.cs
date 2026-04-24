@@ -13,7 +13,7 @@ using System.Reflection;
 [assembly: System.Reflection.AssemblyCompanyAttribute("WordGame.ApiTests")]
 [assembly: System.Reflection.AssemblyConfigurationAttribute("Debug")]
 [assembly: System.Reflection.AssemblyFileVersionAttribute("1.0.0.0")]
-[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+8f34a25fcb9ffb4d67dfaf792d7cd5bbd8d93d9f")]
+[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+7b0aa8b6e28244c4183dddfe8a51f558a8556a39")]
 [assembly: System.Reflection.AssemblyProductAttribute("WordGame.ApiTests")]
 [assembly: System.Reflection.AssemblyTitleAttribute("WordGame.ApiTests")]
 [assembly: System.Reflection.AssemblyVersionAttribute("1.0.0.0")]

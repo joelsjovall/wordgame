@@ -1,0 +1,305 @@
+name: .NET
+
+on:
+  push:
+    branches:
+      - main
+      - STpage
+      - publish
+      - joining
+      - Timer
+  pull_request:
+    branches:
+      - main
+
+jobs:
+  build:
+    name: Build
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 9.0.x
+
+      - name: Restore .NET dependencies
+        run: dotnet restore wordgame.sln
+
+      - name: Check .NET formatting
+        run: dotnet format wordgame.sln --verify-no-changes --no-restore
+
+      - name: Build .NET solution
+        run: dotnet build wordgame.sln --configuration Release --no-restore
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: Frontend/package-lock.json
+
+      - name: Install frontend dependencies
+        run: npm ci
+        working-directory: Frontend
+
+      - name: Lint frontend
+        run: npm run lint -- --max-warnings=0
+        working-directory: Frontend
+
+      - name: Build frontend
+        run: npm run build
+        working-directory: Frontend
+
+      - name: Upload frontend build
+        uses: actions/upload-artifact@v4
+        with:
+          name: frontend-dist
+          path: Frontend/dist
+
+      - name: Upload backend build
+        uses: actions/upload-artifact@v4
+        with:
+          name: backend-build
+          path: Server/bin/Release
+
+  unit-tests:
+    name: Unit Tests
+    runs-on: ubuntu-latest
+    needs: build
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 9.0.x
+
+      - name: Restore .NET dependencies
+        run: dotnet restore wordgame.sln
+
+      - name: Build .NET solution
+        run: dotnet build wordgame.sln --configuration Release --no-restore
+
+      - name: Run unit tests
+        run: dotnet test Testing/UnitTests/WordGame.UnitTests.csproj --configuration Release --no-build --logger "trx;LogFileName=unit-tests.trx" --results-directory TestResults/unit
+
+      - name: Upload unit test artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: unit-test-results
+          path: TestResults/unit
+
+  api-tests:
+    name: API Tests
+    runs-on: ubuntu-latest
+    needs: build
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 9.0.x
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Restore .NET dependencies
+        run: dotnet restore wordgame.sln
+
+      - name: Build .NET solution
+        run: dotnet build wordgame.sln --configuration Release --no-restore
+
+      - name: Start backend
+        run: dotnet run --project Server/Server.csproj --configuration Release --urls "http://localhost:5000" &
+
+      - name: Wait for backend to be ready
+        run: |
+          for i in {1..30}; do
+            if curl -s http://localhost:5000/health > /dev/null; then
+              echo "Backend is up"
+              exit 0
+            fi
+            echo "Waiting for backend..."
+            sleep 2
+          done
+          echo "Backend did not start in time"
+          exit 1
+
+      - name: Run API tests
+        run: dotnet test Testing/ApiTests/WordGame.ApiTests.csproj --configuration Release --no-build --logger "trx;LogFileName=api-tests.trx" --results-directory TestResults/api
+
+      - name: Run API tests Postman
+        run: npx -y newman run "Testing/ApiTests/Postman/WordGame-api.postman_collection.json" --reporters cli,junit --reporter-junit-export TestResults/api/postman-results.xml
+
+      - name: Upload API test artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: api-test-results
+          path: TestResults/api
+
+  ui-tests:
+    name: UI Tests
+    runs-on: ubuntu-latest
+    needs: build
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 9.0.x
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: Frontend/package-lock.json
+
+      - name: Restore .NET dependencies
+        run: dotnet restore wordgame.sln
+
+      - name: Build .NET solution
+        run: dotnet build wordgame.sln --configuration Release --no-restore
+
+      - name: Install frontend dependencies
+        run: npm ci
+        working-directory: Frontend
+
+      - name: Install Playwright dependencies
+        run: npm install
+        working-directory: Testing/PlaywrightTests
+
+      - name: Install Playwright browsers
+        run: npx playwright install --with-deps chromium
+        working-directory: Testing/PlaywrightTests
+
+      - name: Start backend
+        run: dotnet run --project Server/Server.csproj --configuration Release --urls "http://localhost:5000" &
+
+      - name: Wait for backend to be ready
+        run: |
+          for i in {1..30}; do
+            if curl -s http://localhost:5000/health > /dev/null; then
+              echo "Backend is up"
+              exit 0
+            fi
+            echo "Waiting for backend..."
+            sleep 2
+          done
+          echo "Backend did not start in time"
+          exit 1
+
+      - name: Start frontend
+        run: npm run dev -- --host 127.0.0.1 &
+        working-directory: Frontend
+
+      - name: Wait for frontend to be ready
+        run: |
+          for i in {1..30}; do
+            if curl -s http://localhost:5173 > /dev/null; then
+              echo "Frontend is up"
+              exit 0
+            fi
+            echo "Waiting for frontend..."
+            sleep 2
+          done
+          echo "Frontend did not start in time"
+          exit 1
+
+      - name: Run UI tests
+        run: PLAYWRIGHT_JUNIT_OUTPUT_NAME=playwright-results.xml npm test -- --pass-with-no-tests --reporter=html,junit
+        working-directory: Testing/PlaywrightTests
+
+      - name: Upload UI test artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ui-test-results
+          path: |
+            Testing/PlaywrightTests/playwright-report
+            Testing/PlaywrightTests/test-results
+            Testing/PlaywrightTests/playwright-results.xml
+
+  security:
+    name: Security
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Run Gitleaks
+        uses: gitleaks/gitleaks-action@v2
+        with:
+          args: detect --source . --report-format sarif --report-path gitleaks.sarif --redact
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Set up .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 9.0.x
+
+      - name: Check .NET package vulnerabilities
+        run: dotnet list wordgame.sln package --vulnerable | tee vulnerability-report.txt
+
+      - name: Upload security artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: security-reports
+          path: |
+            gitleaks.sarif
+            vulnerability-report.txt
+
+  report:
+    name: Rapport
+    runs-on: ubuntu-latest
+    needs:
+      - build
+      - unit-tests
+      - api-tests
+      - ui-tests
+      - security
+    if: always()
+
+    steps:
+      - name: Create CI report
+        run: |
+          cat > ci-report.md <<'EOF'
+          # CI Rapport
+
+          | Job | Result |
+          | --- | --- |
+          | Build | ${{ needs.build.result }} |
+          | Unit tests | ${{ needs['unit-tests'].result }} |
+          | API tests | ${{ needs['api-tests'].result }} |
+          | UI tests | ${{ needs['ui-tests'].result }} |
+          | Security | ${{ needs.security.result }} |
+          EOF
+
+          cat ci-report.md >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Upload CI report
+        uses: actions/upload-artifact@v4
+        with:
+          name: ci-rapport
+          path: ci-report.md
