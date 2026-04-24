@@ -176,6 +176,7 @@ function GameLobbyPage() {
   );
   const currentRoundIdFromGameState = Number(gameState?.currentRoundId ?? 0);
   const isLobbyRefreshInFlight = useRef(false);
+  const previousPhaseRef = useRef<string>("");
 
   const resetRoundUiState = (options?: { clearSelection?: boolean; clearRoundResults?: boolean; }) => {
     setCurrentWord("");
@@ -516,14 +517,26 @@ function GameLobbyPage() {
 
   useEffect(() => {
     const phase = gameState?.phase ?? "";
-    if (phase !== "round_start_pending" && phase !== "category_selection") {
+    const didEnterPendingNextRoundPhase =
+      (phase === "round_start_pending" || phase === "category_selection")
+      && previousPhaseRef.current !== phase;
+
+    previousPhaseRef.current = phase;
+
+    if (!didEnterPendingNextRoundPhase) {
       return;
     }
 
-    resetRoundUiState({
-      clearSelection: true,
-      clearRoundResults: true,
-    });
+    const timeoutId = window.setTimeout(() => {
+      resetRoundUiState({
+        clearSelection: true,
+        clearRoundResults: true,
+      });
+    }, 0);
+
+    return () => {
+      window.clearTimeout(timeoutId);
+    };
   }, [gameState?.phase]);
 
   useEffect(() => {
