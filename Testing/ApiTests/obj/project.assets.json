@@ -3701,19 +3701,19 @@
     ]
   },
   "packageFolders": {
-    "C:\\Users\\sigge\\.nuget\\packages\\": {}
+    "C:\\Users\\måns\\.nuget\\packages\\": {}
   },
   "project": {
     "version": "1.0.0",
     "restore": {
-      "projectUniqueName": "C:\\Users\\sigge\\wordgame\\wordgame\\Testing\\ApiTests\\WordGame.ApiTests.csproj",
+      "projectUniqueName": "C:\\Users\\måns\\wordgame\\Testing\\ApiTests\\WordGame.ApiTests.csproj",
       "projectName": "WordGame.ApiTests",
-      "projectPath": "C:\\Users\\sigge\\wordgame\\wordgame\\Testing\\ApiTests\\WordGame.ApiTests.csproj",
-      "packagesPath": "C:\\Users\\sigge\\.nuget\\packages\\",
-      "outputPath": "C:\\Users\\sigge\\wordgame\\wordgame\\Testing\\ApiTests\\obj\\",
+      "projectPath": "C:\\Users\\måns\\wordgame\\Testing\\ApiTests\\WordGame.ApiTests.csproj",
+      "packagesPath": "C:\\Users\\måns\\.nuget\\packages\\",
+      "outputPath": "C:\\Users\\måns\\wordgame\\Testing\\ApiTests\\obj\\",
       "projectStyle": "PackageReference",
       "configFilePaths": [
-        "C:\\Users\\sigge\\AppData\\Roaming\\NuGet\\NuGet.Config"
+        "C:\\Users\\måns\\AppData\\Roaming\\NuGet\\NuGet.Config"
       ],
       "originalTargetFrameworks": [
         "net9.0"
@@ -3725,8 +3725,8 @@
         "net9.0": {
           "targetAlias": "net9.0",
           "projectReferences": {
-            "C:\\Users\\sigge\\wordgame\\wordgame\\Server\\Server.csproj": {
-              "projectPath": "C:\\Users\\sigge\\wordgame\\wordgame\\Server\\Server.csproj"
+            "C:\\Users\\måns\\wordgame\\Server\\Server.csproj": {
+              "projectPath": "C:\\Users\\måns\\wordgame\\Server\\Server.csproj"
             }
           }
         }
@@ -3788,15 +3788,15 @@
         "downloadDependencies": [
           {
             "name": "Microsoft.AspNetCore.App.Ref",
-            "version": "[9.0.12, 9.0.12]"
+            "version": "[9.0.13, 9.0.13]"
           },
           {
             "name": "Microsoft.NETCore.App.Ref",
-            "version": "[9.0.12, 9.0.12]"
+            "version": "[9.0.13, 9.0.13]"
           },
           {
             "name": "Microsoft.WindowsDesktop.App.Ref",
-            "version": "[9.0.12, 9.0.12]"
+            "version": "[9.0.13, 9.0.13]"
           }
         ],
         "frameworkReferences": {
@@ -3804,7 +3804,7 @@
             "privateAssets": "all"
           }
         },
-        "runtimeIdentifierGraphPath": "C:\\Program Files\\dotnet\\sdk\\10.0.102/PortableRuntimeIdentifierGraph.json"
+        "runtimeIdentifierGraphPath": "C:\\Program Files\\dotnet\\sdk\\10.0.103/PortableRuntimeIdentifierGraph.json"
       }
     }
   }
