@@ -343,14 +343,6 @@ function GameLobbyPage() {
       const data = await response.json() as RoundResultsResponse;
 
       setRoundResults(data);
-
-      if (data.category?.categoryName) {
-        setSelectedCategoryName(data.category.categoryName);
-      }
-
-      if (data.category?.categoryId) {
-        setSelectedCategory(String(data.category.categoryId));
-      }
     } catch {
       setRoundResults(null);
     }
@@ -376,14 +368,6 @@ function GameLobbyPage() {
         if (!isMounted) return;
 
         setRoundResults(data);
-
-        if (data.category?.categoryName) {
-          setSelectedCategoryName(data.category.categoryName);
-        }
-
-        if (data.category?.categoryId) {
-          setSelectedCategory(String(data.category.categoryId));
-        }
       } catch {
         if (isMounted) {
           setRoundResults(null);
