@@ -177,14 +177,14 @@ function GameLobbyPage() {
   const currentRoundIdFromGameState = Number(gameState?.currentRoundId ?? 0);
   const isLobbyRefreshInFlight = useRef(false);
 
-  useEffect(() => {
+  const resetRoundUiState = () => {
     setCurrentWord("");
     setSubmittedWords([]);
     setResults([]);
     setSubmissionSummary(null);
     setLiveDrafts([]);
     setSubmissionError("");
-  }, [resolvedRoundId]);
+  };
 
   useEffect(() => {
     const nextResolvedRoundId = Number.isFinite(currentRoundIdFromGameState) && currentRoundIdFromGameState > 0
@@ -197,7 +197,9 @@ function GameLobbyPage() {
 
     const timeoutId = window.setTimeout(() => {
       setResolvedRoundId((previousRoundId) =>
-        previousRoundId === nextResolvedRoundId ? previousRoundId : nextResolvedRoundId
+        previousRoundId === nextResolvedRoundId
+          ? previousRoundId
+          : (resetRoundUiState(), nextResolvedRoundId)
       );
     }, 0);
 
@@ -301,7 +303,11 @@ function GameLobbyPage() {
 
     const currentRoundId = Number(data.currentRoundId ?? 0);
     if (Number.isFinite(currentRoundId) && currentRoundId > 0) {
-      setResolvedRoundId(currentRoundId);
+      setResolvedRoundId((previousRoundId) =>
+        previousRoundId === currentRoundId
+          ? previousRoundId
+          : (resetRoundUiState(), currentRoundId)
+      );
     }
 
     return data;
@@ -423,7 +429,11 @@ function GameLobbyPage() {
 
         const stateRoundId = Number(state.currentRoundId ?? 0);
         if (Number.isFinite(stateRoundId) && stateRoundId > 0) {
-          setResolvedRoundId(stateRoundId);
+          setResolvedRoundId((previousRoundId) =>
+            previousRoundId === stateRoundId
+              ? previousRoundId
+              : (resetRoundUiState(), stateRoundId)
+          );
         }
 
         let currentRoundId = stateRoundId > 0 ? stateRoundId : resolvedRoundId;
@@ -434,7 +444,11 @@ function GameLobbyPage() {
             const currentRoundData = (await currentRoundResponse.json()) as { currentRoundId?: number; };
             currentRoundId = Number(currentRoundData.currentRoundId ?? 0);
             if (Number.isFinite(currentRoundId) && currentRoundId > 0 && isMounted) {
-              setResolvedRoundId(currentRoundId);
+              setResolvedRoundId((previousRoundId) =>
+                previousRoundId === currentRoundId
+                  ? previousRoundId
+                  : (resetRoundUiState(), currentRoundId)
+              );
             }
           }
         }
@@ -487,20 +501,6 @@ function GameLobbyPage() {
       window.clearInterval(intervalId);
     };
   }, [hasActiveCountdown]);
-
-  useEffect(() => {
-    if (countdownSeconds !== 0 || !Number.isFinite(resolvedGameId) || resolvedGameId <= 0) {
-      return;
-    }
-
-    void fetchGameState().catch(() => {
-      console.log("Could not refresh game state after countdown ended");
-    });
-
-    if (Number.isFinite(resolvedRoundId) && resolvedRoundId > 0) {
-      void fetchRoundResults(resolvedRoundId);
-    }
-  }, [countdownSeconds, resolvedGameId, resolvedRoundId]);
 
   useEffect(() => {
     if (!Number.isFinite(resolvedRoundId) || resolvedRoundId <= 0 || resolvedPlayerId <= 0) {
