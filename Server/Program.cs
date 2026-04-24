@@ -33,6 +33,15 @@ builder.Services.AddDbContext<AppDbContext>(options =>
 
     if (string.IsNullOrWhiteSpace(connectionString))
     {
+        connectionString = new ConfigurationBuilder()
+            .SetBasePath(builder.Environment.ContentRootPath)
+            .AddJsonFile("appsettings.Development.json", optional: true)
+            .Build()
+            .GetConnectionString("DefaultConnection");
+    }
+
+    if (string.IsNullOrWhiteSpace(connectionString))
+    {
         throw new InvalidOperationException("Connection string 'DefaultConnection' is missing.");
     }
 

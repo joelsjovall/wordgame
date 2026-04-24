@@ -1,5 +1,6 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { Link, useLocation } from "react-router-dom";
+import { API_BASE_URL } from "../utils/apiBaseUrl";
 
 type Player = {
   id: number | string;
@@ -30,6 +31,13 @@ type SubmissionWordResult = {
 };
 
 type ValidateWordResponse = SubmissionWordResult;
+type ExtendedValidateWordResponse = ValidateWordResponse & {
+  validUniqueWordCount?: number;
+  requiredWordCount?: number;
+  challengeCompleted?: boolean;
+  challengeSucceeded?: boolean | null;
+  awardedPoints?: number | null;
+};
 
 type RoundSubmissionResponse = {
   roundId: number;
@@ -81,9 +89,15 @@ type RoundResultsResponse = {
 type GameStateResponse = {
   gameId: number;
   currentRoundId: number | null;
+  roundNumber?: number | null;
   phase: string;
   activePlayerId: number | null;
   activePlayerName: string | null;
+  categoryId?: number | null;
+  categoryName?: string | null;
+  highestBidCount?: number | null;
+  highestBidPlayerId?: number | null;
+  highestBidPlayerName?: string | null;
   deadlineUtc: string | null;
   secondsRemaining: number | null;
   readyPlayerIds: number[];
@@ -95,6 +109,9 @@ type GameStateResponse = {
 type StartRoundResponse = {
   gameId: number;
   roundId: number;
+  roundNumber?: number;
+  categoryId?: number;
+  status?: string;
 };
 
 type LiveRoundDraft = {
@@ -112,8 +129,6 @@ type LocalResult = {
   submittedBy?: string;
   createdAt?: string;
 };
-
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL ?? "";
 
 const difficultyOptions: { key: "easy" | "medium" | "hard"; label: string; points: number; }[] = [
   { key: "easy", label: "Easy", points: 1 },
@@ -160,6 +175,16 @@ function GameLobbyPage() {
     Number.isFinite(roundIdFromQuery) && roundIdFromQuery > 0 ? roundIdFromQuery : 0
   );
   const currentRoundIdFromGameState = Number(gameState?.currentRoundId ?? 0);
+  const isLobbyRefreshInFlight = useRef(false);
+
+  const resetRoundUiState = () => {
+    setCurrentWord("");
+    setSubmittedWords([]);
+    setResults([]);
+    setSubmissionSummary(null);
+    setLiveDrafts([]);
+    setSubmissionError("");
+  };
 
   useEffect(() => {
     const nextResolvedRoundId = Number.isFinite(currentRoundIdFromGameState) && currentRoundIdFromGameState > 0
@@ -172,7 +197,9 @@ function GameLobbyPage() {
 
     const timeoutId = window.setTimeout(() => {
       setResolvedRoundId((previousRoundId) =>
-        previousRoundId === nextResolvedRoundId ? previousRoundId : nextResolvedRoundId
+        previousRoundId === nextResolvedRoundId
+          ? previousRoundId
+          : (resetRoundUiState(), nextResolvedRoundId)
       );
     }, 0);
 
@@ -188,6 +215,67 @@ function GameLobbyPage() {
     const idAsNumber = Number(matchedPlayer?.id ?? 0);
     return Number.isFinite(idAsNumber) && idAsNumber > 0 ? idAsNumber : 0;
   })();
+
+  const getNextPlayerId = (currentPlayerId: number) => {
+    const orderedPlayers = players
+      .map((player) => ({
+        userId: Number(player.id),
+        playerOrder: player.playerOrder ?? 99,
+      }))
+      .filter((player) => Number.isFinite(player.userId) && player.userId > 0)
+      .sort((left, right) => left.playerOrder - right.playerOrder);
+
+    if (orderedPlayers.length === 0) {
+      return null;
+    }
+
+    const currentIndex = orderedPlayers.findIndex((player) => player.userId === currentPlayerId);
+    if (currentIndex < 0) {
+      return orderedPlayers[0].userId;
+    }
+
+    return orderedPlayers[(currentIndex + 1) % orderedPlayers.length]?.userId ?? orderedPlayers[0].userId;
+  };
+
+  const getPlayerName = (playerId: number | null | undefined) => {
+    if (!playerId) {
+      return null;
+    }
+
+    return players.find((player) => Number(player.id) === playerId)?.username ?? null;
+  };
+
+  const buildOptimisticRoundResults = (
+    roundId: number,
+    status: string,
+    overrides?: Partial<RoundResultsResponse>
+  ): RoundResultsResponse => ({
+    roundId,
+    gameId: resolvedGameId,
+    roundNumber: overrides?.roundNumber ?? roundResults?.roundNumber ?? 1,
+    status,
+    currentPlayerId: overrides?.currentPlayerId ?? null,
+    currentPlayerName: overrides?.currentPlayerName ?? null,
+    deadlineUtc: overrides?.deadlineUtc ?? null,
+    secondsRemaining: overrides?.secondsRemaining ?? null,
+    highestBidCount: overrides?.highestBidCount ?? null,
+    highestBidPlayerId: overrides?.highestBidPlayerId ?? null,
+    highestBidPlayerName: overrides?.highestBidPlayerName ?? null,
+    category: overrides?.category ?? {
+      categoryId: Number(selectedCategory || 0),
+      categoryName: selectedCategoryName || null,
+      pointsPerWord: roundResults?.category.pointsPerWord ?? null,
+    },
+    players: overrides?.players ?? players
+      .map((player) => ({
+        userId: Number(player.id),
+        username: player.username,
+        score: player.score ?? 0,
+        turnOrder: player.playerOrder ?? 99,
+      }))
+      .filter((player) => Number.isFinite(player.userId) && player.userId > 0),
+    challenges: overrides?.challenges ?? [],
+  });
 
   const fetchPlayers = async () => {
     if (!Number.isFinite(resolvedGameId) || resolvedGameId <= 0) return;
@@ -215,7 +303,11 @@ function GameLobbyPage() {
 
     const currentRoundId = Number(data.currentRoundId ?? 0);
     if (Number.isFinite(currentRoundId) && currentRoundId > 0) {
-      setResolvedRoundId(currentRoundId);
+      setResolvedRoundId((previousRoundId) =>
+        previousRoundId === currentRoundId
+          ? previousRoundId
+          : (resetRoundUiState(), currentRoundId)
+      );
     }
 
     return data;
@@ -238,7 +330,6 @@ function GameLobbyPage() {
       const data = await response.json() as RoundResultsResponse;
 
       setRoundResults(data);
-      setCountdownSeconds(data.secondsRemaining ?? null);
 
       if (data.category?.categoryName) {
         setSelectedCategoryName(data.category.categoryName);
@@ -272,7 +363,6 @@ function GameLobbyPage() {
         if (!isMounted) return;
 
         setRoundResults(data);
-        setCountdownSeconds(data.secondsRemaining ?? null);
 
         if (data.category?.categoryName) {
           setSelectedCategoryName(data.category.categoryName);
@@ -309,30 +399,41 @@ function GameLobbyPage() {
     };
 
     const loadLobbyState = async () => {
+      if (isLobbyRefreshInFlight.current) {
+        return;
+      }
+
+      isLobbyRefreshInFlight.current = true;
+
       try {
-        const playersResponse = await fetch(`${API_BASE_URL}/api/games/${resolvedGameId}/players`);
+        const [playersResponse, stateResponse] = await Promise.all([
+          fetch(`${API_BASE_URL}/api/games/${resolvedGameId}/players`),
+          fetch(`${API_BASE_URL}/api/games/${resolvedGameId}/state`),
+        ]);
+
         if (!playersResponse.ok) {
           throw new Error("Could not fetch players");
         }
 
-        const playersData = (await playersResponse.json()) as Player[];
-        if (!isMounted) return;
-        setPlayers(playersData);
-
-        const stateResponse = await fetch(`${API_BASE_URL}/api/games/${resolvedGameId}/state`);
         if (!stateResponse.ok) {
           throw new Error("Could not fetch game state");
         }
 
+        const playersData = (await playersResponse.json()) as Player[];
         const state = (await stateResponse.json()) as GameStateResponse;
         if (!isMounted) return;
 
+        setPlayers(playersData);
         setGameState(state);
         setCountdownSeconds(state.secondsRemaining ?? null);
 
         const stateRoundId = Number(state.currentRoundId ?? 0);
         if (Number.isFinite(stateRoundId) && stateRoundId > 0) {
-          setResolvedRoundId(stateRoundId);
+          setResolvedRoundId((previousRoundId) =>
+            previousRoundId === stateRoundId
+              ? previousRoundId
+              : (resetRoundUiState(), stateRoundId)
+          );
         }
 
         let currentRoundId = stateRoundId > 0 ? stateRoundId : resolvedRoundId;
@@ -343,14 +444,18 @@ function GameLobbyPage() {
             const currentRoundData = (await currentRoundResponse.json()) as { currentRoundId?: number; };
             currentRoundId = Number(currentRoundData.currentRoundId ?? 0);
             if (Number.isFinite(currentRoundId) && currentRoundId > 0 && isMounted) {
-              setResolvedRoundId(currentRoundId);
+              setResolvedRoundId((previousRoundId) =>
+                previousRoundId === currentRoundId
+                  ? previousRoundId
+                  : (resetRoundUiState(), currentRoundId)
+              );
             }
           }
         }
 
         if (currentRoundId > 0) {
-          await loadRoundResults(currentRoundId);
-          await loadLiveDrafts(currentRoundId);
+          void loadRoundResults(currentRoundId);
+          void loadLiveDrafts(currentRoundId);
         } else {
           setRoundResults(null);
           setLiveDrafts([]);
@@ -359,13 +464,15 @@ function GameLobbyPage() {
         if (isMounted) {
           console.log("Could not fetch lobby data");
         }
+      } finally {
+        isLobbyRefreshInFlight.current = false;
       }
     };
 
     void loadLobbyState();
     const intervalId = window.setInterval(() => {
       void loadLobbyState();
-    }, 2000);
+    }, 500);
 
     return () => {
       isMounted = false;
@@ -423,7 +530,7 @@ function GameLobbyPage() {
           // Best effort only while typing.
         }
       })();
-    }, 250);
+    }, 1000);
 
     return () => {
       window.clearTimeout(timeoutId);
@@ -462,41 +569,88 @@ function GameLobbyPage() {
       throw new Error("Missing gameId. Add gameId in the lobby URL.");
     }
 
-    const response = await fetch(`${API_BASE_URL}/api/games/${resolvedGameId}/rounds/start`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        categoryId,
-        currentPlayerId: resolvedPlayerId > 0 ? resolvedPlayerId : null,
-        openingBidCount: bidCount,
-      }),
-    });
+    setIsSubmittingBid(true);
 
-    if (!response.ok) {
-      const errorBody = await response.text();
-      throw new Error(errorBody || "Could not start round for selected category.");
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/games/${resolvedGameId}/rounds/start`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          categoryId,
+          currentPlayerId: resolvedPlayerId > 0 ? resolvedPlayerId : null,
+          openingBidCount: bidCount,
+        }),
+      });
+
+      if (!response.ok) {
+        const errorBody = await response.text();
+        throw new Error(errorBody || "Could not start round for selected category.");
+      }
+
+      const data = (await response.json()) as StartRoundResponse;
+      const startedRoundId = Number(data.roundId ?? 0);
+
+      if (!Number.isFinite(startedRoundId) || startedRoundId <= 0) {
+        throw new Error("Round start returned an invalid roundId.");
+      }
+
+      const matchedCategory = categories.find((category) => category.id === categoryId);
+      setResolvedRoundId(startedRoundId);
+      setSelectedCategory(String(categoryId));
+      setSelectedCategoryName(matchedCategory?.name ?? selectedCategoryName);
+      setCurrentBidCount("");
+      setSubmittedWords([]);
+      setResults([]);
+      setSubmissionSummary(null);
+      setLiveDrafts([]);
+      setCountdownSeconds(null);
+      setSubmissionError("");
+      setGameState((previousState) => previousState
+        ? {
+          ...previousState,
+          currentRoundId: startedRoundId,
+          phase: data.status ?? "bidding",
+          allPlayersReady: false,
+          readyPlayerIds: [],
+          readyPlayersCount: 0,
+        }
+        : previousState);
+      setRoundResults((previousResults) => previousResults
+        ? {
+          ...previousResults,
+          roundId: startedRoundId,
+          roundNumber: data.roundNumber ?? previousResults.roundNumber,
+          status: data.status ?? "bidding",
+          category: {
+            ...previousResults.category,
+            categoryId,
+            categoryName: matchedCategory?.name ?? previousResults.category.categoryName,
+          },
+          highestBidCount: bidCount,
+          highestBidPlayerId: resolvedPlayerId > 0 ? resolvedPlayerId : previousResults.highestBidPlayerId,
+          highestBidPlayerName: username || previousResults.highestBidPlayerName,
+        }
+        : buildOptimisticRoundResults(startedRoundId, data.status ?? "bidding", {
+          roundNumber: data.roundNumber ?? 1,
+          currentPlayerId: getNextPlayerId(resolvedPlayerId),
+          currentPlayerName: getPlayerName(getNextPlayerId(resolvedPlayerId)),
+          highestBidCount: bidCount,
+          highestBidPlayerId: resolvedPlayerId,
+          highestBidPlayerName: username || null,
+          category: {
+            categoryId,
+            categoryName: matchedCategory?.name ?? selectedCategoryName ?? null,
+            pointsPerWord: matchedCategory?.points ?? null,
+          },
+        }));
+
+      void fetchGameState();
+      void fetchRoundResults(startedRoundId);
+    } finally {
+      setIsSubmittingBid(false);
     }
-
-    const data = (await response.json()) as StartRoundResponse;
-    const startedRoundId = Number(data.roundId ?? 0);
-
-    if (!Number.isFinite(startedRoundId) || startedRoundId <= 0) {
-      throw new Error("Round start returned an invalid roundId.");
-    }
-
-    const matchedCategory = categories.find((category) => category.id === categoryId);
-    setResolvedRoundId(startedRoundId);
-    setSelectedCategory(String(categoryId));
-    setSelectedCategoryName(matchedCategory?.name ?? selectedCategoryName);
-    setCurrentBidCount("");
-    setSubmittedWords([]);
-    setResults([]);
-    setSubmissionSummary(null);
-    setLiveDrafts([]);
-    await fetchGameState();
-    await fetchRoundResults(startedRoundId);
   };
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
@@ -585,7 +739,7 @@ function GameLobbyPage() {
         throw new Error(errorBody || "Could not validate word.");
       }
 
-      const data = (await response.json()) as ValidateWordResponse;
+      const data = (await response.json()) as ExtendedValidateWordResponse;
 
       setResults((prev) =>
         prev.map((result) =>
@@ -603,6 +757,81 @@ function GameLobbyPage() {
       if (data.isAccepted) {
         setSubmittedWords((prev) => [...prev, trimmed]);
       }
+
+      if (data.challengeCompleted) {
+        const nextPlayerId = getNextPlayerId(resolvedPlayerId);
+        setSubmissionSummary({
+          roundId: resolvedRoundId,
+          playerId: resolvedPlayerId,
+          challengeId: 0,
+          requiredWordCount: data.requiredWordCount ?? 0,
+          validUniqueWordCount: data.validUniqueWordCount ?? 0,
+          succeeded: !!data.challengeSucceeded,
+          awardedPoints: data.awardedPoints ?? 0,
+          words: [],
+        });
+        setGameState((previousState) => previousState
+          ? {
+            ...previousState,
+            phase: "round_start_pending",
+            activePlayerId: nextPlayerId,
+            activePlayerName: getPlayerName(nextPlayerId),
+            deadlineUtc: null,
+            secondsRemaining: null,
+            readyPlayerIds: [],
+            readyPlayersCount: 0,
+            allPlayersReady: false,
+          }
+          : previousState);
+        setRoundResults((previousResults) => previousResults
+          ? {
+            ...previousResults,
+            status: "completed",
+            currentPlayerId: nextPlayerId,
+            currentPlayerName: getPlayerName(nextPlayerId),
+            deadlineUtc: null,
+            secondsRemaining: null,
+            players: previousResults.players.map((player) =>
+              player.userId === resolvedPlayerId
+                ? { ...player, score: player.score + (data.awardedPoints ?? 0) }
+                : player
+            ),
+            challenges: previousResults.challenges.map((challenge) =>
+              challenge.challengedPlayerId === resolvedPlayerId
+                ? {
+                  ...challenge,
+                  status: data.challengeSucceeded ? "succeeded" : "failed",
+                  validUniqueWordCount: data.validUniqueWordCount ?? challenge.validUniqueWordCount,
+                }
+                : challenge
+            ),
+          }
+          : buildOptimisticRoundResults(resolvedRoundId, "completed", {
+            currentPlayerId: nextPlayerId,
+            currentPlayerName: getPlayerName(nextPlayerId),
+            players: players
+              .map((player) => ({
+                userId: Number(player.id),
+                username: player.username,
+                score: (player.score ?? 0) + (Number(player.id) === resolvedPlayerId ? (data.awardedPoints ?? 0) : 0),
+                turnOrder: player.playerOrder ?? 99,
+              }))
+              .filter((player) => Number.isFinite(player.userId) && player.userId > 0),
+            challenges: [
+              {
+                id: 0,
+                challengedPlayerId: resolvedPlayerId,
+                requiredWordCount: data.requiredWordCount ?? 0,
+                status: data.challengeSucceeded ? "succeeded" : "failed",
+                validUniqueWordCount: data.validUniqueWordCount ?? 0,
+              },
+            ],
+          }));
+
+        await fetchGameState();
+        await fetchRoundResults(resolvedRoundId);
+      }
+
       setSubmissionError("");
     } catch (error) {
       setResults((prev) =>
@@ -659,8 +888,35 @@ function GameLobbyPage() {
       }
 
       setCurrentBidCount("");
-      await fetchGameState();
-      await fetchRoundResults(resolvedRoundId);
+      const nextPlayerId = getNextPlayerId(resolvedPlayerId);
+      setGameState((previousState) => previousState
+        ? {
+          ...previousState,
+          phase: "bidding",
+          activePlayerId: nextPlayerId,
+          activePlayerName: getPlayerName(nextPlayerId),
+        }
+        : previousState);
+      setRoundResults((previousResults) => previousResults
+        ? {
+          ...previousResults,
+          status: "bidding",
+          currentPlayerId: nextPlayerId,
+          currentPlayerName: getPlayerName(nextPlayerId),
+          highestBidCount: bidCount,
+          highestBidPlayerId: resolvedPlayerId,
+          highestBidPlayerName: username || previousResults.highestBidPlayerName,
+        }
+        : buildOptimisticRoundResults(resolvedRoundId, "bidding", {
+          currentPlayerId: nextPlayerId,
+          currentPlayerName: getPlayerName(nextPlayerId),
+          highestBidCount: bidCount,
+          highestBidPlayerId: resolvedPlayerId,
+          highestBidPlayerName: username || null,
+        }));
+
+      void fetchGameState();
+      void fetchRoundResults(resolvedRoundId);
     } catch (error) {
       setSubmissionError(error instanceof Error ? error.message : "Could not place bid.");
     } finally {
@@ -671,7 +927,7 @@ function GameLobbyPage() {
   const callBluff = async () => {
     setSubmissionError("");
 
-    if (!Number.isFinite(resolvedRoundId) || resolvedRoundId <= 0 || !roundResults) {
+    if (!Number.isFinite(resolvedRoundId) || resolvedRoundId <= 0 || !syncedRoundResults) {
       setSubmissionError("There is no bid to challenge.");
       return;
     }
@@ -681,7 +937,7 @@ function GameLobbyPage() {
       return;
     }
 
-    if (!roundResults.highestBidPlayerId || !roundResults.highestBidCount) {
+    if (!highestBidPlayerId || !highestBidCount) {
       setSubmissionError("There is no active bid to challenge yet.");
       return;
     }
@@ -696,8 +952,8 @@ function GameLobbyPage() {
         },
         body: JSON.stringify({
           callerPlayerId: resolvedPlayerId,
-          challengedPlayerId: roundResults.highestBidPlayerId,
-          requiredWordCount: roundResults.highestBidCount,
+          challengedPlayerId: highestBidPlayerId,
+          requiredWordCount: highestBidCount,
           timeLimitSeconds: 60,
         }),
       });
@@ -707,13 +963,59 @@ function GameLobbyPage() {
         throw new Error(errorBody || "Could not challenge this bid.");
       }
 
+      const challengedPlayerId = highestBidPlayerId;
+      const challengedPlayerName = getPlayerName(challengedPlayerId);
       setSubmittedWords([]);
       setResults([]);
       setSubmissionSummary(null);
       setCurrentWord("");
       setLiveDrafts([]);
-      await fetchGameState();
-      await fetchRoundResults(resolvedRoundId);
+      setGameState((previousState) => previousState
+        ? {
+          ...previousState,
+          phase: "challenge_active",
+          activePlayerId: challengedPlayerId,
+          activePlayerName: challengedPlayerName,
+        }
+        : previousState);
+      setRoundResults((previousResults) => previousResults
+        ? {
+          ...previousResults,
+          status: "challenge_active",
+          currentPlayerId: challengedPlayerId,
+          currentPlayerName: challengedPlayerName,
+          challenges: previousResults.challenges.some((challenge) => challenge.challengedPlayerId === challengedPlayerId)
+            ? previousResults.challenges
+            : [
+              ...previousResults.challenges,
+              {
+                id: 0,
+                challengedPlayerId,
+                requiredWordCount: highestBidCount ?? 0,
+                status: "active",
+                validUniqueWordCount: 0,
+              },
+            ],
+        }
+        : buildOptimisticRoundResults(resolvedRoundId, "challenge_active", {
+          currentPlayerId: challengedPlayerId,
+          currentPlayerName: challengedPlayerName,
+          highestBidCount,
+          highestBidPlayerId,
+          highestBidPlayerName,
+          challenges: [
+            {
+              id: 0,
+              challengedPlayerId,
+              requiredWordCount: highestBidCount ?? 0,
+              status: "active",
+              validUniqueWordCount: 0,
+            },
+          ],
+        }));
+
+      void fetchGameState();
+      void fetchRoundResults(resolvedRoundId);
     } catch (error) {
       setSubmissionError(error instanceof Error ? error.message : "Could not challenge this bid.");
     } finally {
@@ -733,24 +1035,29 @@ function GameLobbyPage() {
     };
   });
 
-  const displayPlayersFromRoundResults = roundResults?.players.map((player) => ({
+  const activeRoundId = Number(gameState?.currentRoundId ?? resolvedRoundId ?? 0);
+  const syncedRoundResults = roundResults && roundResults.roundId === activeRoundId
+    ? roundResults
+    : null;
+  const displayPlayersFromRoundResults = syncedRoundResults?.players.map((player) => ({
     id: player.userId,
     username: player.username,
     score: player.score,
     playerOrder: player.turnOrder,
   })) ?? [];
   const topPlayers = displayPlayersFromRoundResults.length ? displayPlayersFromRoundResults.slice(0, 4) : displayPlayers;
-  const shownCategoryName = selectedCategoryName || categories.find((category) => String(category.id) === selectedCategory)?.name;
+  const shownCategoryName = gameState?.categoryName || selectedCategoryName || categories.find((category) => String(category.id) === selectedCategory)?.name;
   const firstPlayerId = players
     .slice()
     .sort((left, right) => (left.playerOrder ?? 99) - (right.playerOrder ?? 99))[0]?.id;
   const firstPlayerIdAsNumber = Number(firstPlayerId ?? 0);
-  const currentPhase = gameState?.phase ?? roundResults?.status ?? "waiting";
-  const roundStatus = roundResults?.status ?? currentPhase;
-  const activePlayerId = gameState?.activePlayerId ?? roundResults?.currentPlayerId ?? null;
-  const highestBidCount = roundResults?.highestBidCount ?? null;
-  const highestBidPlayerName = roundResults?.highestBidPlayerName ?? null;
-  const currentTurnPlayerName = gameState?.activePlayerName ?? roundResults?.currentPlayerName ?? null;
+  const currentPhase = gameState?.phase ?? syncedRoundResults?.status ?? "waiting";
+  const roundStatus = syncedRoundResults?.status ?? currentPhase;
+  const activePlayerId = gameState?.activePlayerId ?? syncedRoundResults?.currentPlayerId ?? null;
+  const highestBidCount = gameState?.highestBidCount ?? syncedRoundResults?.highestBidCount ?? null;
+  const highestBidPlayerId = gameState?.highestBidPlayerId ?? syncedRoundResults?.highestBidPlayerId ?? null;
+  const highestBidPlayerName = gameState?.highestBidPlayerName ?? syncedRoundResults?.highestBidPlayerName ?? null;
+  const currentTurnPlayerName = gameState?.activePlayerName ?? syncedRoundResults?.currentPlayerName ?? null;
   const readyPlayerIds = new Set(gameState?.readyPlayerIds ?? []);
   const liveDraftsByPlayerId = new Map(liveDrafts.map((draft) => [draft.playerId, draft]));
   const isMyTurn = resolvedPlayerId > 0 && activePlayerId === resolvedPlayerId;
@@ -761,7 +1068,7 @@ function GameLobbyPage() {
     (!gameState && !roundResults && Number.isFinite(firstPlayerIdAsNumber) && firstPlayerIdAsNumber > 0 && firstPlayerIdAsNumber === resolvedPlayerId)
   );
   const canBid = roundStatus === "bidding" && isMyTurn;
-  const canChallenge = canBid && !!highestBidCount && roundResults?.highestBidPlayerId !== resolvedPlayerId;
+  const canChallenge = canBid && !!highestBidCount && highestBidPlayerId !== resolvedPlayerId;
   const canSubmitWords = roundStatus === "challenge_active" && isMyTurn;
   const canSetOpeningBid = canChooseCategory && !!selectedCategory;
 
@@ -780,7 +1087,7 @@ function GameLobbyPage() {
           ? (canSubmitWords
             ? `Your turn to write ${highestBidCount ?? 0} words in this category before time runs out.`
             : `${currentTurnPlayerName ?? "Another player"} is writing their words now.`)
-          : roundResults?.status === "completed"
+          : syncedRoundResults?.status === "completed"
             ? `${currentTurnPlayerName ?? "Next player"} starts the next round.`
             : "Waiting for the first round to start.";
   const timerLabel = currentPhase === "category_selection"
@@ -861,7 +1168,7 @@ function GameLobbyPage() {
           <section className="sketch-main-column">
             <div className="sketch-category-block">
               <div className="sketch-round-banner">
-                <p>Round: {roundResults?.roundNumber ?? 0}</p>
+                <p>Round: {gameState?.roundNumber ?? roundResults?.roundNumber ?? 0}</p>
                 <p>Status: {currentPhase}</p>
                 {countdownSeconds !== null ? <p>{timerLabel}: {countdownSeconds}s</p> : null}
               </div>

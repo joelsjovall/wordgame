@@ -17,9 +17,7 @@ public class GameFlowService(
     public async Task<GameStateSnapshot?> GetGameStateAsync(int gameId, CancellationToken cancellationToken = default)
     {
         var gameLock = gameConcurrencyService.GetGameLock(gameId);
-        await gameLock.WaitAsync(cancellationToken);
-
-        try
+        using (await gameLock.WriterLockAsync(cancellationToken))
         {
             var game = await dbContext.Games
                 .AsNoTracking()
@@ -28,6 +26,11 @@ public class GameFlowService(
             if (game is null)
             {
                 return null;
+            }
+
+            if (game.CurrentRoundId.HasValue)
+            {
+                await ProcessRoundTimeoutsAsync(game.CurrentRoundId.Value, cancellationToken);
             }
 
             var players = await dbContext.GamePlayers
@@ -54,8 +57,6 @@ public class GameFlowService(
 
             if (game.CurrentRoundId.HasValue)
             {
-                await ProcessRoundTimeoutsAsync(game.CurrentRoundId.Value, cancellationToken);
-
                 var roundReadyPlayerIds = players
                     .Where(player => player.IsReady)
                     .Select(player => player.UserId)
@@ -63,6 +64,7 @@ public class GameFlowService(
 
                 var round = await dbContext.Rounds
                     .AsNoTracking()
+                    .Include(x => x.Category)
                     .Include(x => x.Bids)
                     .Include(x => x.Challenges)
                     .FirstOrDefaultAsync(x => x.Id == game.CurrentRoundId.Value, cancellationToken);
@@ -76,9 +78,17 @@ public class GameFlowService(
                     {
                         GameId = gameId,
                         CurrentRoundId = round.Id,
+                        RoundNumber = round.RoundNumber,
                         Phase = round.Status,
                         ActivePlayerId = round.CurrentPlayerId,
                         ActivePlayerName = activePlayerName,
+                        CategoryId = round.CategoryId,
+                        CategoryName = round.Category?.Name,
+                        HighestBidCount = round.HighestBidCount,
+                        HighestBidPlayerId = round.HighestBidPlayerId,
+                        HighestBidPlayerName = round.HighestBidPlayerId.HasValue
+                            ? players.FirstOrDefault(player => player.UserId == round.HighestBidPlayerId.Value)?.Username
+                            : null,
                         DeadlineUtc = deadlineUtc,
                         SecondsRemaining = GetSecondsRemaining(deadlineUtc),
                         ReadyPlayerIds = roundReadyPlayerIds,
@@ -162,18 +172,12 @@ public class GameFlowService(
                 AllPlayersReady = true
             };
         }
-        finally
-        {
-            gameLock.Release();
-        }
     }
 
     public async Task<Round?> ProcessRoundTimeoutsAsync(int roundId, CancellationToken cancellationToken = default)
     {
         var roundLock = gameConcurrencyService.GetRoundLock(roundId);
-        await roundLock.WaitAsync(cancellationToken);
-
-        try
+        using (await roundLock.WriterLockAsync(cancellationToken))
         {
             var round = await dbContext.Rounds
                 .Include(x => x.Category)
@@ -230,68 +234,11 @@ public class GameFlowService(
                         .Distinct()
                         .CountAsync(cancellationToken);
 
-                    var succeeded = validUniqueWordCount >= activeChallenge.RequiredWordCount;
-                    activeChallenge.Status = "failed";
-                    activeChallenge.ResolvedAt = DateTime.UtcNow;
-
-                    var pointsPerWord = round.Category?.Points ?? 1;
-                    var awardedWordPoints = validUniqueWordCount * pointsPerWord;
-
-                    var challengedPlayer = await dbContext.GamePlayers
-                        .FirstOrDefaultAsync(
-                            x => x.GameId == round.GameId && x.UserId == activeChallenge.ChallengedPlayerId,
-                            cancellationToken);
-
-                    if (challengedPlayer is not null && awardedWordPoints > 0)
-                    {
-                        challengedPlayer.Score += awardedWordPoints;
-                    }
-
-                    if (succeeded)
-                    {
-                        activeChallenge.Status = "succeeded";
-
-                        if (challengedPlayer is not null)
-                        {
-                            challengedPlayer.Score += ChallengeBonusPoints;
-                        }
-                    }
-                    else
-                    {
-                        activeChallenge.Status = "failed";
-
-                        var callerPlayer = await dbContext.GamePlayers
-                            .FirstOrDefaultAsync(
-                                x => x.GameId == round.GameId && x.UserId == activeChallenge.CallerPlayerId,
-                                cancellationToken);
-
-                        if (callerPlayer is not null)
-                        {
-                            callerPlayer.Score += ChallengeBonusPoints;
-                        }
-                    }
-
-                    var orderedPlayers = await dbContext.GamePlayers
-                        .AsNoTracking()
-                        .Where(x => x.GameId == round.GameId)
-                        .OrderBy(x => x.TurnOrder)
-                        .ToListAsync(cancellationToken);
-
-                    round.Status = "completed";
-                    round.CurrentPlayerId = GetNextPlayerId(orderedPlayers, activeChallenge.ChallengedPlayerId);
-
-                    await ResetPlayersReadyStateAsync(round.GameId, cancellationToken);
-                    roundLiveDraftService.ClearRound(round.Id);
-
-                    await dbContext.SaveChangesAsync(cancellationToken);
+                    await ResolveChallengeAsync(round, activeChallenge, validUniqueWordCount, cancellationToken);
                 }
             }
 
             return round;
-        }
-        finally
-        {
-            roundLock.Release();
         }
     }
 
@@ -407,6 +354,78 @@ public class GameFlowService(
         await dbContext.SaveChangesAsync(cancellationToken);
     }
 
+    public async Task<ChallengeResolutionResult> ResolveChallengeAsync(
+        Round round,
+        Challenge challenge,
+        int validUniqueWordCount,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(round);
+        ArgumentNullException.ThrowIfNull(challenge);
+
+        var pointsPerWord = round.Category?.Points
+            ?? await dbContext.Categories
+                .AsNoTracking()
+                .Where(category => category.Id == round.CategoryId)
+                .Select(category => (int?)category.Points)
+                .FirstOrDefaultAsync(cancellationToken)
+            ?? 1;
+
+        var succeeded = validUniqueWordCount >= challenge.RequiredWordCount;
+        var awardedWordPoints = validUniqueWordCount * pointsPerWord;
+        challenge.Status = succeeded ? "succeeded" : "failed";
+        challenge.ResolvedAt = DateTime.UtcNow;
+
+        var players = await dbContext.GamePlayers
+            .Where(x => x.GameId == round.GameId && (x.UserId == challenge.ChallengedPlayerId || x.UserId == challenge.CallerPlayerId))
+            .ToListAsync(cancellationToken);
+
+        var challengedPlayer = players.FirstOrDefault(player => player.UserId == challenge.ChallengedPlayerId);
+        var callerPlayer = players.FirstOrDefault(player => player.UserId == challenge.CallerPlayerId);
+
+        if (challengedPlayer is not null && awardedWordPoints > 0)
+        {
+            challengedPlayer.Score += awardedWordPoints;
+        }
+
+        var awardedBonusPoints = 0;
+
+        if (succeeded)
+        {
+            if (challengedPlayer is not null)
+            {
+                challengedPlayer.Score += ChallengeBonusPoints;
+                awardedBonusPoints = ChallengeBonusPoints;
+            }
+        }
+        else if (callerPlayer is not null)
+        {
+            callerPlayer.Score += ChallengeBonusPoints;
+            awardedBonusPoints = ChallengeBonusPoints;
+        }
+
+        var orderedPlayers = await dbContext.GamePlayers
+            .AsNoTracking()
+            .Where(x => x.GameId == round.GameId)
+            .OrderBy(x => x.TurnOrder)
+            .ToListAsync(cancellationToken);
+
+        round.Status = "completed";
+        round.CurrentPlayerId = GetNextPlayerId(orderedPlayers, challenge.ChallengedPlayerId);
+
+        await ResetPlayersReadyStateAsync(round.GameId, cancellationToken);
+        roundLiveDraftService.ClearRound(round.Id);
+        await dbContext.SaveChangesAsync(cancellationToken);
+
+        return new ChallengeResolutionResult
+        {
+            Succeeded = succeeded,
+            AwardedPoints = awardedWordPoints + awardedBonusPoints,
+            ValidUniqueWordCount = validUniqueWordCount,
+            NextPlayerId = round.CurrentPlayerId
+        };
+    }
+
     public async Task<int> GetNextRoundStarterPlayerIdAsync(
         int gameId,
         IReadOnlyList<GameStatePlayer>? players = null,
@@ -505,9 +524,15 @@ public sealed class GameStateSnapshot
 {
     public int GameId { get; set; }
     public int? CurrentRoundId { get; set; }
+    public int? RoundNumber { get; set; }
     public string Phase { get; set; } = string.Empty;
     public int? ActivePlayerId { get; set; }
     public string? ActivePlayerName { get; set; }
+    public int? CategoryId { get; set; }
+    public string? CategoryName { get; set; }
+    public int? HighestBidCount { get; set; }
+    public int? HighestBidPlayerId { get; set; }
+    public string? HighestBidPlayerName { get; set; }
     public DateTime? DeadlineUtc { get; set; }
     public int? SecondsRemaining { get; set; }
     public List<int> ReadyPlayerIds { get; set; } = [];
@@ -522,4 +547,12 @@ public sealed class GameStatePlayer
     public string Username { get; set; } = string.Empty;
     public int TurnOrder { get; set; }
     public bool IsReady { get; set; }
+}
+
+public sealed class ChallengeResolutionResult
+{
+    public bool Succeeded { get; set; }
+    public int AwardedPoints { get; set; }
+    public int ValidUniqueWordCount { get; set; }
+    public int? NextPlayerId { get; set; }
 }
