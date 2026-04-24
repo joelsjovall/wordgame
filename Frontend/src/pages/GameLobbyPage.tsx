@@ -177,13 +177,25 @@ function GameLobbyPage() {
   const currentRoundIdFromGameState = Number(gameState?.currentRoundId ?? 0);
   const isLobbyRefreshInFlight = useRef(false);
 
-  const resetRoundUiState = () => {
+  const resetRoundUiState = (options?: { clearSelection?: boolean; clearRoundResults?: boolean; }) => {
     setCurrentWord("");
+    setCurrentBidCount("");
     setSubmittedWords([]);
     setResults([]);
     setSubmissionSummary(null);
     setLiveDrafts([]);
     setSubmissionError("");
+
+    if (options?.clearSelection) {
+      setSelectedCategory("");
+      setSelectedCategoryName("");
+      setSelectedDifficulty("");
+      setIsCategoryModalOpen(false);
+    }
+
+    if (options?.clearRoundResults) {
+      setRoundResults(null);
+    }
   };
 
   useEffect(() => {
@@ -199,7 +211,7 @@ function GameLobbyPage() {
       setResolvedRoundId((previousRoundId) =>
         previousRoundId === nextResolvedRoundId
           ? previousRoundId
-          : (resetRoundUiState(), nextResolvedRoundId)
+          : (resetRoundUiState({ clearRoundResults: true }), nextResolvedRoundId)
       );
     }, 0);
 
@@ -306,7 +318,7 @@ function GameLobbyPage() {
       setResolvedRoundId((previousRoundId) =>
         previousRoundId === currentRoundId
           ? previousRoundId
-          : (resetRoundUiState(), currentRoundId)
+          : (resetRoundUiState({ clearRoundResults: true }), currentRoundId)
       );
     }
 
@@ -432,8 +444,8 @@ function GameLobbyPage() {
           setResolvedRoundId((previousRoundId) =>
             previousRoundId === stateRoundId
               ? previousRoundId
-              : (resetRoundUiState(), stateRoundId)
-          );
+          : (resetRoundUiState({ clearRoundResults: true }), stateRoundId)
+      );
         }
 
         let currentRoundId = stateRoundId > 0 ? stateRoundId : resolvedRoundId;
@@ -447,7 +459,7 @@ function GameLobbyPage() {
               setResolvedRoundId((previousRoundId) =>
                 previousRoundId === currentRoundId
                   ? previousRoundId
-                  : (resetRoundUiState(), currentRoundId)
+                  : (resetRoundUiState({ clearRoundResults: true }), currentRoundId)
               );
             }
           }
@@ -503,6 +515,18 @@ function GameLobbyPage() {
   }, [hasActiveCountdown]);
 
   useEffect(() => {
+    const phase = gameState?.phase ?? "";
+    if (phase !== "round_start_pending" && phase !== "category_selection") {
+      return;
+    }
+
+    resetRoundUiState({
+      clearSelection: true,
+      clearRoundResults: true,
+    });
+  }, [gameState?.phase]);
+
+  useEffect(() => {
     if (!Number.isFinite(resolvedRoundId) || resolvedRoundId <= 0 || resolvedPlayerId <= 0) {
       return;
     }
@@ -540,6 +564,7 @@ function GameLobbyPage() {
   const fetchCategoriesByDifficulty = async (difficulty: "easy" | "medium" | "hard") => {
     setSelectedDifficulty(difficulty);
     setSelectedCategory("");
+    setSelectedCategoryName("");
     setCategoriesError("");
     setIsCategoriesLoading(true);
 
@@ -1036,7 +1061,13 @@ function GameLobbyPage() {
   });
 
   const activeRoundId = Number(gameState?.currentRoundId ?? resolvedRoundId ?? 0);
-  const syncedRoundResults = roundResults && roundResults.roundId === activeRoundId
+  const firstPlayerId = players
+    .slice()
+    .sort((left, right) => (left.playerOrder ?? 99) - (right.playerOrder ?? 99))[0]?.id;
+  const firstPlayerIdAsNumber = Number(firstPlayerId ?? 0);
+  const currentPhase = gameState?.phase ?? roundResults?.status ?? "waiting";
+  const shouldShowRoundResults = currentPhase !== "round_start_pending" && currentPhase !== "category_selection";
+  const syncedRoundResults = shouldShowRoundResults && roundResults && roundResults.roundId === activeRoundId
     ? roundResults
     : null;
   const displayPlayersFromRoundResults = syncedRoundResults?.players.map((player) => ({
@@ -1046,12 +1077,11 @@ function GameLobbyPage() {
     playerOrder: player.turnOrder,
   })) ?? [];
   const topPlayers = displayPlayersFromRoundResults.length ? displayPlayersFromRoundResults.slice(0, 4) : displayPlayers;
-  const shownCategoryName = gameState?.categoryName || selectedCategoryName || categories.find((category) => String(category.id) === selectedCategory)?.name;
-  const firstPlayerId = players
-    .slice()
-    .sort((left, right) => (left.playerOrder ?? 99) - (right.playerOrder ?? 99))[0]?.id;
-  const firstPlayerIdAsNumber = Number(firstPlayerId ?? 0);
-  const currentPhase = gameState?.phase ?? syncedRoundResults?.status ?? "waiting";
+  const shownCategoryName = gameState?.categoryName
+    || syncedRoundResults?.category.categoryName
+    || (currentPhase === "category_selection"
+      ? (selectedCategoryName || categories.find((category) => String(category.id) === selectedCategory)?.name)
+      : null);
   const roundStatus = syncedRoundResults?.status ?? currentPhase;
   const activePlayerId = gameState?.activePlayerId ?? syncedRoundResults?.currentPlayerId ?? null;
   const highestBidCount = gameState?.highestBidCount ?? syncedRoundResults?.highestBidCount ?? null;
