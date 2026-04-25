@@ -552,3 +552,316 @@
     grid-template-columns: 1fr;
   }
 }
+
+.sketch-lobby-card {
+  width: min(1180px, 96vw);
+  padding: 28px;
+}
+
+.sketch-lobby-top {
+  align-items: flex-start;
+  margin-bottom: 22px;
+}
+
+.sketch-meta-strip {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.sketch-meta-pill {
+  padding: 9px 14px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.7);
+  border: 1px solid rgba(179, 106, 74, 0.24);
+  color: rgba(43, 29, 23, 0.82);
+  font-size: 0.95rem;
+  font-weight: 600;
+}
+
+.sketch-meta-pill-status {
+  text-transform: capitalize;
+}
+
+.sketch-meta-pill-active {
+  background: rgba(179, 106, 74, 0.14);
+  color: var(--accent);
+}
+
+.sketch-player-row {
+  gap: 14px;
+  margin-bottom: 22px;
+}
+
+.sketch-player-slot {
+  text-align: left;
+  border: 1px solid rgba(179, 106, 74, 0.24);
+  background: rgba(255, 255, 255, 0.52);
+  border-radius: 18px;
+  padding: 16px;
+}
+
+.sketch-player-slot.active-turn {
+  border-color: rgba(179, 106, 74, 0.85);
+  background: rgba(255, 247, 240, 0.92);
+  box-shadow: 0 12px 24px rgba(82, 54, 43, 0.08);
+}
+
+.sketch-player-slot.current-user {
+  background: rgba(255, 247, 240, 0.86);
+}
+
+.sketch-player-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.sketch-player-label {
+  margin: 0;
+  font-size: 1.08rem;
+}
+
+.sketch-player-score {
+  font-size: 1rem;
+  font-weight: 700;
+  color: var(--accent);
+}
+
+.sketch-player-status {
+  margin: 8px 0 0;
+}
+
+.sketch-lobby-body {
+  grid-template-columns: 1fr;
+  gap: 22px;
+  min-height: 0;
+}
+
+.sketch-main-column {
+  display: grid;
+  gap: 22px;
+}
+
+.sketch-stage-card {
+  border: 1px solid rgba(179, 106, 74, 0.24);
+  border-radius: 28px;
+  padding: 24px;
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.78), rgba(255, 250, 245, 0.92));
+  box-shadow: 0 20px 36px rgba(82, 54, 43, 0.08);
+}
+
+.sketch-stage-header {
+  display: flex;
+  justify-content: space-between;
+  gap: 18px;
+  align-items: flex-start;
+  margin-bottom: 14px;
+}
+
+.sketch-stage-eyebrow {
+  margin: 0 0 8px;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  font-size: 0.8rem;
+  font-weight: 700;
+  color: rgba(43, 29, 23, 0.48);
+}
+
+.sketch-stage-title {
+  margin: 0;
+  font-family: var(--display);
+  font-size: clamp(2rem, 3vw, 2.7rem);
+  color: var(--accent);
+}
+
+.sketch-stage-turn {
+  min-width: 180px;
+  padding: 14px 16px;
+  border-radius: 18px;
+  background: rgba(179, 106, 74, 0.08);
+  border: 1px solid rgba(179, 106, 74, 0.2);
+}
+
+.sketch-stage-turn-label {
+  display: block;
+  margin-bottom: 4px;
+  font-size: 0.8rem;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: rgba(43, 29, 23, 0.5);
+}
+
+.sketch-turn-status {
+  margin-bottom: 20px;
+  font-size: 1rem;
+  color: rgba(43, 29, 23, 0.8);
+}
+
+.sketch-stage-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1.35fr) minmax(240px, 0.8fr);
+  gap: 18px;
+}
+
+.sketch-stage-main,
+.sketch-side-panel {
+  display: grid;
+  gap: 16px;
+}
+
+.sketch-summary-row {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.sketch-summary-card,
+.sketch-side-card {
+  border-radius: 20px;
+  background: rgba(255, 255, 255, 0.72);
+  border: 1px solid rgba(179, 106, 74, 0.18);
+  padding: 16px 18px;
+}
+
+.sketch-summary-label {
+  display: block;
+  margin-bottom: 6px;
+  font-size: 0.78rem;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: rgba(43, 29, 23, 0.48);
+}
+
+.sketch-input-block {
+  display: grid;
+  gap: 8px;
+}
+
+.sketch-field-label {
+  font-size: 0.92rem;
+  font-weight: 700;
+  color: rgba(43, 29, 23, 0.78);
+}
+
+.sketch-word-input {
+  width: 100%;
+  max-width: none;
+  border: 1px solid rgba(43, 29, 23, 0.15);
+  border-bottom: 2px solid rgba(43, 29, 23, 0.6);
+  border-radius: 16px 16px 10px 10px;
+  background: rgba(255, 255, 255, 0.68);
+  text-align: left;
+  padding: 14px 16px;
+}
+
+.sketch-stage-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+
+.sketch-stage-actions.single {
+  justify-content: flex-start;
+}
+
+.sketch-secondary-action {
+  background: transparent;
+  color: var(--accent);
+  box-shadow: none;
+}
+
+.sketch-feedback-row {
+  display: grid;
+  gap: 8px;
+}
+
+.sketch-feedback-text {
+  margin: 0;
+  color: rgba(43, 29, 23, 0.72);
+  font-size: 0.95rem;
+}
+
+.sketch-feedback-text.is-error {
+  color: #8b4a33;
+}
+
+.sketch-side-title {
+  margin: 0 0 8px;
+  font-size: 1rem;
+  color: var(--ink);
+}
+
+.sketch-side-copy {
+  margin: 0;
+  color: rgba(43, 29, 23, 0.72);
+  line-height: 1.5;
+}
+
+.sketch-history-list {
+  padding-right: 0;
+  max-height: 220px;
+}
+
+.sketch-live-board {
+  width: 100%;
+  margin: 0;
+  padding: 6px 2px 0;
+}
+
+.sketch-live-title {
+  text-align: left;
+  margin-bottom: 4px;
+}
+
+@media (max-width: 860px) {
+  .sketch-stage-header,
+  .sketch-stage-grid {
+    grid-template-columns: 1fr;
+    display: grid;
+  }
+
+  .sketch-stage-turn {
+    min-width: 0;
+  }
+
+  .sketch-summary-row {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 600px) {
+  .sketch-lobby-card {
+    padding: 22px 16px 20px;
+  }
+
+  .sketch-lobby-top {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .sketch-back-link {
+    align-self: flex-start;
+  }
+
+  .sketch-player-row {
+    grid-template-columns: 1fr;
+  }
+
+  .sketch-stage-card {
+    padding: 18px;
+  }
+
+  .sketch-stage-title {
+    font-size: 1.8rem;
+  }
+
+  .sketch-stage-actions {
+    flex-direction: column;
+  }
+
+  .sketch-stage-actions .primary {
+    width: 100%;
+  }
+}
