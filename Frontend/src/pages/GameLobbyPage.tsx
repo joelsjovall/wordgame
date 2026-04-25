@@ -1334,10 +1334,30 @@ function GameLobbyPage() {
   const canChallenge = canBid && !!highestBidCount && highestBidPlayerId !== resolvedPlayerId;
   const canSubmitWords = roundStatus === "challenge_active" && isMyTurn;
   const canSetOpeningBid = canChooseCategory && !!selectedCategory;
+  const primaryActionLabel = canChooseCategory
+    ? "Choose category"
+    : isRoundStartPending
+      ? "Start round"
+      : canSubmitWords
+        ? "Write words"
+        : canBid
+          ? "Make your move"
+          : "Watch the round";
 
   const wordsLeftToType = Math.max(0, (highestBidCount ?? 0) - submittedWords.length);
   const currentPlayerCard = topPlayers.find((player) => Number(player.id) === activePlayerId) ?? null;
-  const compactStatusLabel = currentPhase.replaceAll("_", " ");
+  const activeTurnName = currentPlayerCard?.username ?? currentTurnPlayerName ?? "Waiting...";
+  const stageInstruction = canChooseCategory
+    ? (isMyTurn ? "Step 1: Choose a category. Step 2: Set your bid." : `${activeTurnName} is choosing a category and opening bid.`)
+    : canSubmitWords
+      ? (isMyTurn ? "It's your turn to write words." : `It's ${activeTurnName}'s turn to write words.`)
+      : canBid
+        ? "It's your turn to bid or challenge."
+        : roundStatus === "bidding"
+          ? `It's ${activeTurnName}'s turn to bid or challenge.`
+          : isRoundStartPending
+            ? (isMyTurn ? "It's your turn to get ready for the next round." : `Waiting for ${activeTurnName} to get ready.`)
+            : `It's ${activeTurnName}'s turn.`;
   const roundMessage = isRoundStartPending
     ? (amIReady
       ? `Waiting for everyone to click Starta rundan (${gameState?.readyPlayersCount ?? 0}/${gameState?.totalPlayers ?? players.length}).`
@@ -1355,15 +1375,6 @@ function GameLobbyPage() {
           : syncedRoundResults?.status === "completed"
             ? `${currentTurnPlayerName ?? "Next player"} starts the next round.`
             : "Waiting for the first round to start.";
-  const timerLabel = currentPhase === "category_selection"
-    ? "Time to choose category and opening bid"
-    : currentPhase === "round_start_pending"
-      ? "Waiting for players"
-      : roundStatus === "bidding"
-        ? "Time to answer the bid"
-        : roundStatus === "challenge_active"
-          ? "Time to write words"
-          : "Time";
   const liveDraftCards = topPlayers.map((player, index) => {
     const playerId = Number(player.id);
     const liveDraft = liveDraftsByPlayerId.get(playerId);
@@ -1376,6 +1387,19 @@ function GameLobbyPage() {
       isYou: playerId > 0 && playerId === resolvedPlayerId,
     };
   });
+  const shownRoundNumber = gameState?.roundNumber ?? roundResults?.roundNumber ?? 0;
+  const currentAnswerCards = results
+    .filter((result) => !result.pending)
+    .filter((result) => {
+      if (!result.submittedBy) {
+        return isMyTurn;
+      }
+
+      return result.submittedBy.toLowerCase() === activeTurnName.toLowerCase();
+    })
+    .slice(-6);
+  const shouldShowAnswerPanel = !canChooseCategory && currentAnswerCards.length > 0;
+  const shouldShowDetailPanels = !canChooseCategory && !isRoundStartPending;
 
   return (
     <main className="page">
@@ -1384,10 +1408,9 @@ function GameLobbyPage() {
           <div className="sketch-meta-strip">
             <div className="sketch-meta-pill">Lobby {sessionCode || "XXXX-XXXX"}</div>
             <div className="sketch-meta-pill">Round {gameState?.roundNumber ?? roundResults?.roundNumber ?? 0}</div>
-            <div className="sketch-meta-pill sketch-meta-pill-status">{compactStatusLabel}</div>
             {countdownSeconds !== null ? <div className="sketch-meta-pill">{countdownSeconds}s left</div> : null}
             {isMyTurn ? <div className="sketch-meta-pill sketch-meta-pill-active">Your turn</div> : null}
-            {isPreviewMode ? <div className="sketch-meta-pill">Preview mode</div> : null}
+            {!isMyTurn && currentTurnPlayerName ? <div className="sketch-meta-pill">{currentTurnPlayerName}</div> : null}
           </div>
           <Link className="rules-link sketch-back-link" to="/">
             Back
@@ -1395,26 +1418,47 @@ function GameLobbyPage() {
         </div>
 
         <div className="sketch-player-row">
-          {topPlayers.map((player, index) => (
+          {topPlayers.map((player, index) => {
+            const playerId = Number(player.id);
+            const isActivePlayer = playerId === activePlayerId;
+            const isCurrentUser = playerId === resolvedPlayerId;
+            const playerStatus = isActivePlayer
+              ? "playing"
+              : readyPlayerIds.has(playerId)
+                ? "ready"
+                : isCurrentUser
+                  ? "you"
+                  : "waiting";
+            const playerStatusLabel = isActivePlayer
+              ? (countdownSeconds !== null ? `Playing now - ${countdownSeconds}s` : "Playing now")
+              : playerStatus === "ready"
+                ? "Ready"
+                : playerStatus === "you"
+                  ? "You"
+                  : "Waiting";
+
+            return (
             <article
-              className={`sketch-player-slot${Number(player.id) === activePlayerId ? " active-turn" : ""}${Number(player.id) === resolvedPlayerId ? " current-user" : ""}`}
+              className={`sketch-player-slot status-${playerStatus}${isActivePlayer ? " active-turn" : ""}${isCurrentUser ? " current-user" : ""}`}
               key={player.id ?? index}
             >
               <div className="sketch-player-head">
                 <h2 className="sketch-player-label">{player.username || `Player ${index + 1}`}</h2>
                 <span className="sketch-player-score">{player.score ?? 0}p</span>
               </div>
-              <p className="sketch-player-status">
-                {Number(player.id) === activePlayerId
-                  ? "Current turn"
-                  : readyPlayerIds.has(Number(player.id))
-                    ? "Ready"
-                    : Number(player.id) === resolvedPlayerId
-                      ? "You"
-                      : "Waiting"}
-              </p>
+              <div className="sketch-player-avatar" aria-hidden="true">
+                <span className="sketch-player-avatar-eye left" />
+                <span className="sketch-player-avatar-eye right" />
+                <span className="sketch-player-avatar-mouth" />
+                <span className="sketch-player-avatar-trait" />
+              </div>
+              <div className="sketch-score-meter" aria-hidden="true">
+                <span style={{ width: `${Math.min(100, Math.max(8, (player.score ?? 0) * 8))}%` }} />
+              </div>
+              <p className="sketch-player-status">{playerStatusLabel}</p>
             </article>
-          ))}
+            );
+          })}
         </div>
 
         <div className="sketch-lobby-body">
@@ -1422,34 +1466,28 @@ function GameLobbyPage() {
             <section className="sketch-stage-card">
               <div className="sketch-stage-header">
                 <div>
-                  <p className="sketch-stage-eyebrow">{timerLabel}</p>
+                  <p className="sketch-stage-kicker">{primaryActionLabel}</p>
                   <h2 className="sketch-stage-title">
-                    {canChooseCategory
-                      ? "Choose category and opening bid"
-                      : canSubmitWords
-                        ? "Write your words"
-                        : canBid
-                          ? "Make your move"
-                          : "Current round"}
+                    {stageInstruction}
                   </h2>
                 </div>
                 <div className="sketch-stage-turn">
-                  <span className="sketch-stage-turn-label">Now playing</span>
-                  <strong>{currentPlayerCard?.username ?? currentTurnPlayerName ?? "Waiting..."}</strong>
+                  <span className="sketch-focus-chip">Round {shownRoundNumber}</span>
+                  <strong>{activeTurnName}</strong>
                 </div>
               </div>
               <p className="sketch-turn-status">{roundMessage}</p>
-              <div className="sketch-stage-grid">
+              <div className={`sketch-stage-grid${shouldShowAnswerPanel ? "" : " is-focused"}`}>
                 <div className="sketch-stage-main">
-                  <div className="sketch-summary-row">
-                    <div className="sketch-summary-card">
-                      <span className="sketch-summary-label">Category</span>
-                      <strong>{shownCategoryName ?? "Choose one to start"}</strong>
-                    </div>
-                    <div className="sketch-summary-card">
-                      <span className="sketch-summary-label">Highest bid</span>
-                      <strong>{highestBidCount ? `${highestBidCount} by ${highestBidPlayerName ?? "Unknown"}` : "No bid yet"}</strong>
-                    </div>
+                  <div className="sketch-summary-card">
+                    <span className="sketch-summary-label">Current bid</span>
+                    <p className="sketch-summary-sentence">
+                      {highestBidCount
+                        ? `${highestBidPlayerName ?? "Someone"} has bid that they can name ${highestBidCount} ${shownCategoryName ?? "words"}.`
+                        : shownCategoryName
+                          ? `No one has placed a bid for ${shownCategoryName} yet.`
+                          : "Choose a category to start the bidding."}
+                    </p>
                   </div>
 
                   {isRoundStartPending ? (
@@ -1460,79 +1498,73 @@ function GameLobbyPage() {
                     </div>
                   ) : (
                     <>
-                      <div className="sketch-input-block">
-                        <label className="sketch-field-label" htmlFor="bid-input">Opening bid / next bid</label>
-                        <input
-                          id="bid-input"
-                          className="sketch-word-input"
-                          type="number"
-                          min="1"
-                          placeholder={canChooseCategory ? "Set opening bid" : highestBidCount ? `More than ${highestBidCount}` : "How many can you name?"}
-                          value={currentBidCount}
-                          onChange={(e) => setCurrentBidCount(e.target.value)}
-                          disabled={(!canBid && !canSetOpeningBid) || isSubmittingBid}
-                        />
-                      </div>
+                      {(canBid || canSetOpeningBid) ? (
+                        <div className="sketch-input-block">
+                          <label className="sketch-field-label" htmlFor="bid-input">Bid</label>
+                          <input
+                            id="bid-input"
+                            className="sketch-word-input"
+                            type="number"
+                            min="1"
+                            placeholder={canChooseCategory ? "Opening bid" : highestBidCount ? `More than ${highestBidCount}` : "Enter bid"}
+                            value={currentBidCount}
+                            onChange={(e) => setCurrentBidCount(e.target.value)}
+                            disabled={(!canBid && !canSetOpeningBid) || isSubmittingBid}
+                          />
+                        </div>
+                      ) : null}
 
                       <div className="sketch-stage-actions">
-                        <button
-                          className="primary"
-                          type="button"
-                          onClick={() => {
-                            if (canChooseCategory) {
-                              const categoryId = Number(selectedCategory || "");
-                              const bidCount = Number(currentBidCount || "");
+                        {canChooseCategory ? (
+                          <button
+                            className="primary sketch-focus-action"
+                            type="button"
+                            onClick={() => setIsCategoryModalOpen(true)}
+                          >
+                            Choose category
+                          </button>
+                        ) : null}
+                        {(canBid || canSetOpeningBid) ? (
+                          <button
+                            className={canChooseCategory ? "primary sketch-secondary-action" : "primary"}
+                            type="button"
+                            onClick={() => {
+                              if (canChooseCategory) {
+                                const categoryId = Number(selectedCategory || "");
+                                const bidCount = Number(currentBidCount || "");
 
-                              if (!Number.isFinite(categoryId) || categoryId <= 0) {
-                                setSubmissionError("Choose a category first.");
+                                if (!Number.isFinite(categoryId) || categoryId <= 0) {
+                                  setSubmissionError("Choose a category first.");
+                                  return;
+                                }
+
+                                if (!Number.isFinite(bidCount) || bidCount <= 0) {
+                                  setSubmissionError("Write a valid opening bid first.");
+                                  return;
+                                }
+
+                                void startRoundForCategory(categoryId, bidCount).catch((error: unknown) => {
+                                  setSubmissionError(
+                                    error instanceof Error ? error.message : "Could not start a round for this category."
+                                  );
+                                });
                                 return;
                               }
 
-                              if (!Number.isFinite(bidCount) || bidCount <= 0) {
-                                setSubmissionError("Write a valid opening bid first.");
-                                return;
-                              }
-
-                              void startRoundForCategory(categoryId, bidCount).catch((error: unknown) => {
-                                setSubmissionError(
-                                  error instanceof Error ? error.message : "Could not start a round for this category."
-                                );
-                              });
-                              return;
-                            }
-
-                            void submitBid();
-                          }}
-                          disabled={(!canBid && !canSetOpeningBid) || isSubmittingBid}
-                        >
-                          {isSubmittingBid ? "Saving..." : canChooseCategory ? "Start round" : highestBidCount ? "Raise bid" : "Set bid"}
-                        </button>
-                        <button
-                          className="primary sketch-secondary-action"
-                          type="button"
-                          onClick={() => setIsCategoryModalOpen(true)}
-                          disabled={!canChooseCategory}
-                        >
-                          Choose category
-                        </button>
-                        <button className="primary sketch-secondary-action" type="button" onClick={() => void callBluff()} disabled={!canChallenge || isCallingBluff}>
-                          {isCallingBluff ? "Checking..." : "Bullshit"}
-                        </button>
+                              void submitBid();
+                            }}
+                            disabled={(!canBid && !canSetOpeningBid) || isSubmittingBid}
+                          >
+                            {isSubmittingBid ? "Saving..." : canChooseCategory ? "Start round" : "Raise bid"}
+                          </button>
+                        ) : null}
+                        {canChallenge ? (
+                          <button className="primary sketch-secondary-action" type="button" onClick={() => void callBluff()} disabled={isCallingBluff}>
+                            {isCallingBluff ? "Checking..." : "Bullshit"}
+                          </button>
+                        ) : null}
                       </div>
 
-                      <div className="sketch-input-block">
-                        <label className="sketch-field-label" htmlFor="word-input">Words</label>
-                        <input
-                          id="word-input"
-                          className="sketch-word-input"
-                          type="text"
-                          placeholder="Type a word and press Enter"
-                          value={currentWord}
-                          onChange={(e) => setCurrentWord(e.target.value)}
-                          onKeyDown={handleKeyDown}
-                          disabled={!canSubmitWords}
-                        />
-                      </div>
                     </>
                   )}
 
@@ -1549,53 +1581,68 @@ function GameLobbyPage() {
                   </div>
                 </div>
 
+                {shouldShowAnswerPanel ? (
                 <aside className="sketch-side-panel">
                   <div className="sketch-side-card">
-                    <h3 className="sketch-side-title">Quick status</h3>
-                    <p className="sketch-side-copy">Turn owner: {currentTurnPlayerName ?? "Waiting..."}</p>
-                    <p className="sketch-side-copy">Ready players: {gameState?.readyPlayersCount ?? 0}/{gameState?.totalPlayers ?? players.length}</p>
-                  </div>
-
-                  <div className="sketch-side-card">
-                    <h3 className="sketch-side-title">History</h3>
-                    <ul className="sketch-history-list">
-                      {results.length ? (
-                        results.map((result, index) => (
-                          <li
-                            className={result.pending ? "sketch-history-item" : result.correct ? "sketch-history-item correct" : "sketch-history-item incorrect"}
-                            key={`${result.word}-${result.createdAt ?? index}-${index}`}
-                          >
-                            <span>{result.submittedBy ? `${result.submittedBy}: ${result.word}` : result.word}</span>
-                            <span>{result.pending ? "Checking..." : result.correct ? "Correct" : "Incorrect"}</span>
-                          </li>
-                        ))
-                      ) : (
-                        <li className="sketch-history-empty">No guesses yet</li>
-                      )}
+                    <h3 className="sketch-side-title">{activeTurnName}'s answers</h3>
+                    <ul className="sketch-answer-list">
+                      {currentAnswerCards.map((answer, index) => (
+                        <li
+                          className={`sketch-answer-item ${answer.correct ? "correct" : "incorrect"}`}
+                          key={`${answer.word}-${answer.createdAt ?? index}-${index}`}
+                        >
+                          <span>{answer.word}</span>
+                          <span>{answer.correct ? "Correct" : "Wrong"}</span>
+                        </li>
+                      ))}
                     </ul>
                   </div>
                 </aside>
+                ) : null}
               </div>
             </section>
 
-            <div className="sketch-live-board">
-              <h3 className="sketch-live-title">Live answers</h3>
-              <div className="sketch-live-grid">
-                {liveDraftCards.map((draft) => (
-                  <article className="sketch-live-card" key={draft.id}>
-                    <p className="sketch-live-player">{draft.username}{draft.isYou ? " (you)" : ""}</p>
-                    {draft.words.length > 0 ? (
-                      <p className="sketch-live-words">{draft.words.join(", ")}</p>
-                    ) : (
-                      <p className="sketch-live-empty">No accepted words shared yet</p>
-                    )}
-                    {draft.currentInput.trim() ? (
-                      <p className="sketch-live-typing">Typing: {draft.currentInput}</p>
-                    ) : null}
-                  </article>
-                ))}
-              </div>
+            {shouldShowDetailPanels ? (
+            <div className="sketch-detail-panels">
+              <details className="sketch-detail-card">
+                <summary className="sketch-detail-summary">Word history</summary>
+                <ul className="sketch-history-list">
+                  {results.length ? (
+                    results.map((result, index) => (
+                      <li
+                        className={result.pending ? "sketch-history-item" : result.correct ? "sketch-history-item correct" : "sketch-history-item incorrect"}
+                        key={`${result.word}-${result.createdAt ?? index}-${index}`}
+                      >
+                        <span>{result.submittedBy ? `${result.submittedBy}: ${result.word}` : result.word}</span>
+                        <span>{result.pending ? "Checking..." : result.correct ? "Correct" : "Incorrect"}</span>
+                      </li>
+                    ))
+                  ) : (
+                    <li className="sketch-history-empty">No guesses yet</li>
+                  )}
+                </ul>
+              </details>
+
+              <details className="sketch-detail-card">
+                <summary className="sketch-detail-summary">Live answers</summary>
+                <div className="sketch-live-grid">
+                  {liveDraftCards.map((draft) => (
+                    <article className="sketch-live-card" key={draft.id}>
+                      <p className="sketch-live-player">{draft.username}{draft.isYou ? " (you)" : ""}</p>
+                      {draft.words.length > 0 ? (
+                        <p className="sketch-live-words">{draft.words.join(", ")}</p>
+                      ) : (
+                        <p className="sketch-live-empty">No accepted words shared yet</p>
+                      )}
+                      {draft.currentInput.trim() ? (
+                        <p className="sketch-live-typing">Typing: {draft.currentInput}</p>
+                      ) : null}
+                    </article>
+                  ))}
+                </div>
+              </details>
             </div>
+            ) : null}
           </section>
         </div>
       </section>
@@ -1644,6 +1691,58 @@ function GameLobbyPage() {
                 </select>
               </>
             )}
+          </div>
+        </div>
+      )}
+
+      {canSubmitWords && (
+        <div className="modal-backdrop">
+          <div className="modal-card sketch-challenge-modal" onClick={(e) => e.stopPropagation()}>
+            <p className="sketch-challenge-eyebrow">Your challenge</p>
+            <h2 className="title modal-title sketch-challenge-title">
+              You need to type {highestBidCount ?? 0} words
+            </h2>
+
+            <div className="sketch-challenge-stats">
+              {countdownSeconds !== null ? (
+                <div className="sketch-challenge-stat">
+                  <span>Time left</span>
+                  <strong>{countdownSeconds}s</strong>
+                </div>
+              ) : null}
+              <div className="sketch-challenge-stat">
+                <span>Words left</span>
+                <strong>{wordsLeftToType}</strong>
+              </div>
+              <div className="sketch-challenge-stat">
+                <span>Category</span>
+                <strong>{shownCategoryName ?? "Unknown"}</strong>
+              </div>
+            </div>
+
+            <div className="sketch-input-block">
+              <label className="sketch-field-label" htmlFor="word-input">Type a word</label>
+              <input
+                id="word-input"
+                className="sketch-word-input"
+                type="text"
+                placeholder="Type a word and press Enter"
+                value={currentWord}
+                onChange={(e) => setCurrentWord(e.target.value)}
+                onKeyDown={handleKeyDown}
+                disabled={!canSubmitWords}
+                autoFocus
+              />
+            </div>
+
+            {submittedWords.length > 0 ? (
+              <div className="sketch-challenge-progress">
+                <span className="sketch-summary-label">Accepted words</span>
+                <p className="sketch-feedback-text">{submittedWords.join(", ")}</p>
+              </div>
+            ) : null}
+
+            {submissionError ? <p className="sketch-feedback-text is-error">{submissionError}</p> : null}
           </div>
         </div>
       )}

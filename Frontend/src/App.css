@@ -14,7 +14,7 @@
   border-radius: 30px;
   padding: 56px 48px 64px;
   text-align: center;
-  box-shadow: 0 18px 45px rgba(82, 54, 43, 0.18);
+  box-shadow: 0 18px 45px rgba(84, 71, 130, 0.16);
   position: relative;
 }
 
@@ -32,27 +32,27 @@
 .title {
   font-family: var(--display);
   font-size: clamp(2.2rem, 4vw, 3.2rem);
-  color: var(--accent);
+  color: #7d5cff;
   letter-spacing: 0.5px;
   margin: 0 0 48px;
 }
 
 .primary {
   font-family: var(--display);
-  font-size: 1.25rem;
-  padding: 14px 36px;
-  border-radius: 16px;
-  border: 2px solid var(--accent);
-  background: var(--accent);
-  color: #fff7f0;
-  box-shadow: 0 10px 20px rgba(170, 96, 62, 0.25);
+  font-size: 1.35rem;
+  padding: 16px 42px;
+  border-radius: 12px;
+  border: 2px solid #5737df;
+  background: #5737df;
+  color: #fffdf8;
+  box-shadow: 0 14px 28px rgba(87, 55, 223, 0.28);
   cursor: pointer;
   transition: transform 0.2s ease, box-shadow 0.2s ease;
 }
 
 .primary:hover {
-  transform: translateY(-2px);
-  box-shadow: 0 16px 25px rgba(170, 96, 62, 0.3);
+  transform: translateY(-3px);
+  box-shadow: 0 20px 34px rgba(87, 55, 223, 0.34);
 }
 
 .primary:disabled {
@@ -63,7 +63,7 @@
 }
 
 .primary:focus-visible {
-  outline: 3px solid rgba(170, 96, 62, 0.35);
+  outline: 3px solid rgba(125, 92, 255, 0.35);
   outline-offset: 3px;
 }
 
@@ -118,8 +118,9 @@
   justify-content: center;
   padding: 10px 26px;
   border-radius: 999px;
-  border: 2px solid var(--accent);
-  color: var(--accent);
+  border: 2px solid #7d5cff;
+  color: #5b43a5;
+  background: var(--game-surface-strong);
   text-decoration: none;
   font-family: var(--display);
   font-size: 1.05rem;
@@ -129,12 +130,12 @@
 
 .rules-link:hover {
   transform: translateY(-1px);
-  background-color: rgba(179, 106, 74, 0.12);
-  box-shadow: 0 10px 20px rgba(170, 96, 62, 0.2);
+  background-color: var(--game-surface);
+  box-shadow: 0 10px 20px rgba(125, 92, 255, 0.18);
 }
 
 .rules-link:focus-visible {
-  outline: 3px solid rgba(170, 96, 62, 0.35);
+  outline: 3px solid rgba(125, 92, 255, 0.28);
   outline-offset: 3px;
 }
 
@@ -259,20 +260,29 @@
   gap: 10px;
   padding: 10px 12px;
   border-radius: 12px;
-  background: rgba(255, 255, 255, 0.72);
+  background: var(--game-surface);
+  color: #263043;
   font-size: 0.93rem;
 }
 
+.sketch-history-item:nth-child(2n) {
+  background: var(--game-surface);
+}
+
+.sketch-history-item:nth-child(3n) {
+  background: var(--game-surface);
+}
+
 .sketch-history-item.correct {
-  color: #2f6f44;
+  color: #5b43a5;
 }
 
 .sketch-history-item.incorrect {
-  color: #8b4a33;
+  color: #5b43a5;
 }
 
 .sketch-history-empty {
-  color: rgba(43, 29, 23, 0.55);
+  color: rgba(38, 48, 67, 0.58);
   font-size: 0.95rem;
 }
 
@@ -281,12 +291,12 @@
 }
 
 .sketch-history-list::-webkit-scrollbar-thumb {
-  background: rgba(179, 106, 74, 0.4);
+  background: rgba(125, 92, 255, 0.35);
   border-radius: 999px;
 }
 
 .sketch-history-list::-webkit-scrollbar-track {
-  background: rgba(179, 106, 74, 0.08);
+  background: rgba(226, 212, 255, 0.42);
   border-radius: 999px;
 }
 
@@ -554,254 +564,590 @@
 }
 
 .sketch-lobby-card {
-  width: min(1180px, 96vw);
-  padding: 28px;
+  width: min(1040px, 94vw);
+  padding: 24px 0 36px;
+  background: transparent;
+  border: 0;
+  border-radius: 0;
+  box-shadow: none;
+}
+
+.sketch-lobby-card::before {
+  display: none;
 }
 
 .sketch-lobby-top {
   align-items: flex-start;
-  margin-bottom: 22px;
+  margin-bottom: 28px;
 }
 
 .sketch-meta-strip {
   display: flex;
   flex-wrap: wrap;
-  gap: 10px;
+  gap: 8px;
 }
 
 .sketch-meta-pill {
-  padding: 9px 14px;
+  padding: 7px 11px;
   border-radius: 999px;
-  background: rgba(255, 255, 255, 0.7);
-  border: 1px solid rgba(179, 106, 74, 0.24);
-  color: rgba(43, 29, 23, 0.82);
-  font-size: 0.95rem;
+  background: var(--game-surface-strong);
+  border: 1px solid var(--game-line);
+  color: #5b43a5;
+  font-size: 0.87rem;
   font-weight: 600;
 }
 
-.sketch-meta-pill-status {
-  text-transform: capitalize;
+.sketch-meta-pill:nth-child(2) {
+  background: var(--game-surface-strong);
+  color: #5b43a5;
+}
+
+.sketch-meta-pill:nth-child(3) {
+  background: var(--game-surface-strong);
+  color: #5b43a5;
 }
 
 .sketch-meta-pill-active {
-  background: rgba(179, 106, 74, 0.14);
-  color: var(--accent);
+  background: #7d5cff;
+  color: #fffdf8;
 }
 
 .sketch-player-row {
-  gap: 14px;
-  margin-bottom: 22px;
+  gap: 18px;
+  margin-bottom: 56px;
 }
 
 .sketch-player-slot {
-  text-align: left;
-  border: 1px solid rgba(179, 106, 74, 0.24);
-  background: rgba(255, 255, 255, 0.52);
-  border-radius: 18px;
-  padding: 16px;
+  --player-color: var(--pastel-blue);
+  --player-accent: #276a90;
+  text-align: center;
+  border: 0;
+  background: transparent;
+  border-radius: 0;
+  padding: 8px 6px;
+  display: grid;
+  justify-items: center;
+  gap: 8px;
+  border-radius: 16px;
+  transition: transform 0.2s ease, background-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.sketch-player-slot:nth-child(2) {
+  --player-color: var(--pastel-pink);
+  --player-accent: #b5477a;
+}
+
+.sketch-player-slot:nth-child(3) {
+  --player-color: var(--pastel-mint);
+  --player-accent: #2f7a57;
+}
+
+.sketch-player-slot:nth-child(4) {
+  --player-color: var(--pastel-yellow);
+  --player-accent: #795d00;
 }
 
 .sketch-player-slot.active-turn {
-  border-color: rgba(179, 106, 74, 0.85);
-  background: rgba(255, 247, 240, 0.92);
-  box-shadow: 0 12px 24px rgba(82, 54, 43, 0.08);
+  background: transparent;
+  box-shadow: none;
+  animation: activePlayerPulse 1.8s ease-in-out infinite;
 }
 
 .sketch-player-slot.current-user {
-  background: rgba(255, 247, 240, 0.86);
+  background: transparent;
+  outline: 0;
 }
 
 .sketch-player-head {
-  display: flex;
+  display: grid;
   align-items: center;
-  justify-content: space-between;
-  gap: 12px;
+  justify-items: center;
+  gap: 6px;
 }
 
 .sketch-player-label {
   margin: 0;
-  font-size: 1.08rem;
+  font-size: 0.92rem;
+  line-height: 1.2;
+  color: #263043;
 }
 
 .sketch-player-score {
-  font-size: 1rem;
+  font-size: 0.78rem;
   font-weight: 700;
-  color: var(--accent);
+  color: var(--player-accent);
+  background: #fffdf8;
+  border-radius: 999px;
+  padding: 4px 8px;
+  white-space: nowrap;
+}
+
+.sketch-score-meter {
+  width: 58px;
+  height: 5px;
+  overflow: hidden;
+  border-radius: 999px;
+  background: rgba(255, 253, 248, 0.38);
+}
+
+.sketch-score-meter span {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: var(--player-accent);
+}
+
+.sketch-player-avatar {
+  width: 54px;
+  height: 58px;
+  position: relative;
+  background:
+    radial-gradient(circle at 33% 32%, #111 0 3px, transparent 4px),
+    radial-gradient(circle at 67% 32%, #111 0 3px, transparent 4px),
+    var(--player-color);
+  border: 3px solid #15151f;
+  border-radius: 999px 999px 18px 18px;
+  box-shadow: none;
+  overflow: visible;
+}
+
+.sketch-player-avatar::before,
+.sketch-player-avatar::after {
+  display: none;
+}
+
+.sketch-player-avatar-mouth {
+  position: absolute;
+  z-index: 1;
+  left: 50%;
+  top: 50%;
+  width: 14px;
+  height: 4px;
+  border-radius: 999px;
+  background: #15151f;
+  transform: translate(-50%, -50%);
+}
+
+.sketch-player-avatar-eye,
+.sketch-player-avatar-trait {
+  position: absolute;
+  display: block;
+  z-index: 2;
+  pointer-events: none;
+}
+
+.sketch-player-avatar-eye {
+  top: 15px;
+  width: 12px;
+  height: 4px;
+  border-radius: 999px;
+  background: #15151f;
+  opacity: 0;
+}
+
+.sketch-player-avatar-eye.left {
+  left: 10px;
+}
+
+.sketch-player-avatar-eye.right {
+  right: 10px;
+}
+
+.sketch-player-avatar-trait {
+  opacity: 0;
+}
+
+.sketch-player-slot:nth-child(1) .sketch-player-avatar-trait {
+  left: 50%;
+  top: -12px;
+  width: 40px;
+  height: 14px;
+  border: 3px solid #15151f;
+  border-bottom-width: 5px;
+  border-radius: 14px 14px 7px 7px;
+  background: #263043;
+  opacity: 1;
+  transform: translateX(-50%) rotate(-2deg);
+}
+
+.sketch-player-slot:nth-child(1) .sketch-player-avatar-trait::after {
+  content: "";
+  position: absolute;
+  left: -9px;
+  right: -9px;
+  bottom: -7px;
+  height: 5px;
+  border-radius: 999px;
+  background: #15151f;
+}
+
+.sketch-player-slot:nth-child(2) .sketch-player-avatar-mouth {
+  top: 34px;
+  width: 18px;
+  height: 9px;
+  border: 3px solid #15151f;
+  border-top: 0;
+  border-radius: 0 0 999px 999px;
+  background: transparent;
+}
+
+.sketch-player-slot:nth-child(3) .sketch-player-avatar-eye {
+  opacity: 1;
+}
+
+.sketch-player-slot:nth-child(3) .sketch-player-avatar-eye.left {
+  transform: rotate(24deg);
+}
+
+.sketch-player-slot:nth-child(3) .sketch-player-avatar-eye.right {
+  transform: rotate(-24deg);
+}
+
+.sketch-player-slot:nth-child(3) .sketch-player-avatar-mouth {
+  top: 37px;
+  width: 16px;
+  height: 7px;
+  border: 3px solid #15151f;
+  border-bottom: 0;
+  border-radius: 999px 999px 0 0;
+  background: transparent;
+}
+
+.sketch-player-slot:nth-child(4) .sketch-player-avatar-trait {
+  left: 50%;
+  top: 15px;
+  width: 40px;
+  height: 14px;
+  border: 3px solid #15151f;
+  border-radius: 999px;
+  background:
+    radial-gradient(circle at 28% 50%, rgba(255, 255, 255, 0.75) 0 6px, transparent 7px),
+    radial-gradient(circle at 72% 50%, rgba(255, 255, 255, 0.75) 0 6px, transparent 7px),
+    rgba(205, 232, 255, 0.82);
+  opacity: 1;
+  transform: translateX(-50%);
+}
+
+.sketch-player-slot:nth-child(4) .sketch-player-avatar-trait::after {
+  content: "";
+  position: absolute;
+  left: 50%;
+  top: -3px;
+  width: 3px;
+  height: 14px;
+  background: #15151f;
+  transform: translateX(-50%);
 }
 
 .sketch-player-status {
-  margin: 8px 0 0;
+  margin: 2px 0 0;
+  padding: 3px 8px;
+  border-radius: 999px;
+  background: rgba(255, 253, 248, 0.5);
+  font-size: 0.72rem;
+  color: rgba(38, 48, 67, 0.72);
+  font-weight: 700;
+}
+
+.sketch-player-slot.active-turn .sketch-player-status {
+  background: #5737df;
+  color: #fffdf8;
+  font-weight: 700;
+}
+
+.sketch-player-slot.status-ready .sketch-player-status {
+  color: #2f7a57;
+}
+
+.sketch-player-slot.status-waiting .sketch-player-status {
+  color: #795d00;
+}
+
+.sketch-player-slot.active-turn .sketch-player-avatar {
+  transform: translateY(-2px);
+  box-shadow: 0 10px 20px rgba(125, 92, 255, 0.18);
+}
+
+@keyframes activePlayerPulse {
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+
+  50% {
+    transform: translateY(-4px);
+  }
 }
 
 .sketch-lobby-body {
   grid-template-columns: 1fr;
-  gap: 22px;
+  gap: 18px;
   min-height: 0;
 }
 
 .sketch-main-column {
   display: grid;
   gap: 22px;
+  max-width: 920px;
+  width: 100%;
+  justify-self: center;
 }
 
 .sketch-stage-card {
-  border: 1px solid rgba(179, 106, 74, 0.24);
-  border-radius: 28px;
-  padding: 24px;
-  background: linear-gradient(180deg, rgba(255, 255, 255, 0.78), rgba(255, 250, 245, 0.92));
-  box-shadow: 0 20px 36px rgba(82, 54, 43, 0.08);
+  border: 0;
+  border-radius: 0;
+  padding: 0;
+  background: transparent;
+  box-shadow: none;
 }
 
 .sketch-stage-header {
-  display: flex;
-  justify-content: space-between;
-  gap: 18px;
-  align-items: flex-start;
-  margin-bottom: 14px;
+  display: grid;
+  justify-items: center;
+  gap: 10px;
+  margin-bottom: 18px;
+  text-align: center;
 }
 
-.sketch-stage-eyebrow {
+.sketch-stage-kicker {
   margin: 0 0 8px;
+  color: rgba(255, 253, 248, 0.72);
+  font-size: 0.82rem;
+  font-weight: 800;
+  letter-spacing: 0.1em;
   text-transform: uppercase;
-  letter-spacing: 0.08em;
-  font-size: 0.8rem;
-  font-weight: 700;
-  color: rgba(43, 29, 23, 0.48);
 }
 
 .sketch-stage-title {
   margin: 0;
   font-family: var(--display);
-  font-size: clamp(2rem, 3vw, 2.7rem);
-  color: var(--accent);
+  font-size: clamp(2.1rem, 4vw, 3.25rem);
+  color: #fffdf8;
+  max-width: 760px;
+  text-shadow: 0 2px 18px rgba(38, 48, 67, 0.14);
 }
 
 .sketch-stage-turn {
-  min-width: 180px;
-  padding: 14px 16px;
-  border-radius: 18px;
-  background: rgba(179, 106, 74, 0.08);
-  border: 1px solid rgba(179, 106, 74, 0.2);
+  align-self: center;
+  color: #fffdf8;
+  font-size: 0.88rem;
+  display: grid;
+  justify-items: center;
+  gap: 6px;
 }
 
-.sketch-stage-turn-label {
-  display: block;
-  margin-bottom: 4px;
-  font-size: 0.8rem;
+.sketch-focus-chip {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 6px 10px;
+  border-radius: 999px;
+  background: var(--game-surface-strong);
+  color: #5b43a5;
+  font-size: 0.72rem;
   text-transform: uppercase;
   letter-spacing: 0.08em;
-  color: rgba(43, 29, 23, 0.5);
+  font-weight: 700;
 }
 
 .sketch-turn-status {
-  margin-bottom: 20px;
+  margin: 0 auto 28px;
   font-size: 1rem;
-  color: rgba(43, 29, 23, 0.8);
+  color: rgba(255, 253, 248, 0.76);
+  max-width: 620px;
+  text-align: center;
 }
 
 .sketch-stage-grid {
   display: grid;
-  grid-template-columns: minmax(0, 1.35fr) minmax(240px, 0.8fr);
-  gap: 18px;
+  grid-template-columns: minmax(0, 1fr) minmax(240px, 0.62fr);
+  gap: 24px;
+}
+
+.sketch-stage-grid.is-focused {
+  display: block;
 }
 
 .sketch-stage-main,
 .sketch-side-panel {
   display: grid;
-  gap: 16px;
+  gap: 22px;
 }
 
-.sketch-summary-row {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 12px;
+.sketch-stage-grid.is-focused .sketch-stage-main {
+  justify-items: center;
 }
 
 .sketch-summary-card,
 .sketch-side-card {
-  border-radius: 20px;
-  background: rgba(255, 255, 255, 0.72);
-  border: 1px solid rgba(179, 106, 74, 0.18);
-  padding: 16px 18px;
+  border-radius: 12px;
+  background: transparent;
+  border: 0;
+  padding: 0;
+}
+
+.sketch-side-card {
+  background: rgba(248, 244, 255, 0.84);
+  border-color: var(--game-line);
+  box-shadow: 0 12px 28px rgba(38, 48, 67, 0.08);
+}
+
+.sketch-summary-card {
+  display: grid;
+  gap: 5px;
+  max-width: 560px;
+  text-align: center;
 }
 
 .sketch-summary-label {
   display: block;
-  margin-bottom: 6px;
-  font-size: 0.78rem;
+  font-size: 0.72rem;
   text-transform: uppercase;
   letter-spacing: 0.08em;
-  color: rgba(43, 29, 23, 0.48);
+  color: rgba(255, 253, 248, 0.58);
+}
+
+.sketch-summary-sentence {
+  margin: 0;
+  color: rgba(255, 253, 248, 0.88);
+  font-size: clamp(0.96rem, 1.4vw, 1.08rem);
+  font-weight: 600;
+  line-height: 1.35;
+  overflow-wrap: anywhere;
 }
 
 .sketch-input-block {
   display: grid;
   gap: 8px;
+  width: min(320px, 100%);
 }
 
 .sketch-field-label {
-  font-size: 0.92rem;
+  font-size: 0.82rem;
   font-weight: 700;
-  color: rgba(43, 29, 23, 0.78);
+  color: rgba(255, 253, 248, 0.72);
 }
 
 .sketch-word-input {
   width: 100%;
   max-width: none;
-  border: 1px solid rgba(43, 29, 23, 0.15);
-  border-bottom: 2px solid rgba(43, 29, 23, 0.6);
-  border-radius: 16px 16px 10px 10px;
-  background: rgba(255, 255, 255, 0.68);
+  border: 1px solid rgba(255, 253, 248, 0.38);
+  border-bottom: 2px solid rgba(255, 253, 248, 0.7);
+  border-radius: 12px;
+  background: rgba(255, 253, 248, 0.9);
+  color: #263043;
   text-align: left;
-  padding: 14px 16px;
+  padding: 12px 14px;
+  font-size: 0.96rem;
+}
+
+.sketch-word-input:focus {
+  outline: 3px solid rgba(125, 92, 255, 0.2);
+  border-bottom-color: #7d5cff;
 }
 
 .sketch-stage-actions {
   display: flex;
   flex-wrap: wrap;
+  justify-content: center;
   gap: 12px;
 }
 
 .sketch-stage-actions.single {
-  justify-content: flex-start;
+  justify-content: center;
 }
 
 .sketch-secondary-action {
-  background: transparent;
-  color: var(--accent);
+  background: var(--game-surface-strong);
+  color: #5b43a5;
+  box-shadow: 0 10px 18px rgba(125, 92, 255, 0.12);
+  border-color: var(--game-line);
+  font-size: 1.05rem;
+  padding: 12px 24px;
+  background: rgba(255, 253, 248, 0.18);
+  border-color: rgba(255, 253, 248, 0.35);
+  color: #fffdf8;
   box-shadow: none;
+}
+
+.sketch-focus-action {
+  min-width: min(340px, 100%);
+  font-size: clamp(1.55rem, 3vw, 2.15rem);
+  padding: 22px 52px;
+}
+
+.sketch-stage-actions .primary:not(.sketch-secondary-action) {
+  order: 2;
+}
+
+.sketch-stage-actions .sketch-secondary-action {
+  order: 1;
 }
 
 .sketch-feedback-row {
   display: grid;
-  gap: 8px;
+  gap: 6px;
+  opacity: 0.72;
 }
 
 .sketch-feedback-text {
   margin: 0;
-  color: rgba(43, 29, 23, 0.72);
-  font-size: 0.95rem;
+  color: rgba(255, 253, 248, 0.82);
+  font-size: 0.84rem;
 }
 
 .sketch-feedback-text.is-error {
-  color: #8b4a33;
+  color: #5b43a5;
 }
 
 .sketch-side-title {
-  margin: 0 0 8px;
-  font-size: 1rem;
-  color: var(--ink);
+  margin: 0 0 4px;
+  font-size: 0.88rem;
+  color: #5b43a5;
 }
 
 .sketch-side-copy {
   margin: 0;
-  color: rgba(43, 29, 23, 0.72);
+  color: #263043;
   line-height: 1.5;
+  font-size: 0.9rem;
+}
+
+.sketch-answer-list {
+  list-style: none;
+  margin: 10px 0 0;
+  padding: 0;
+  display: grid;
+  gap: 8px;
+}
+
+.sketch-answer-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 9px 11px;
+  border-radius: 12px;
+  background: #fffdf8;
+  color: #263043;
+  font-size: 0.9rem;
+  font-weight: 600;
+}
+
+.sketch-answer-item.correct {
+  background: #e7ffe9;
+  color: #2f7a57;
+}
+
+.sketch-answer-item.incorrect {
+  background: #ffe1ef;
+  color: #b5477a;
 }
 
 .sketch-history-list {
   padding-right: 0;
-  max-height: 220px;
+  max-height: 180px;
+  gap: 8px;
 }
 
 .sketch-live-board {
@@ -810,9 +1156,145 @@
   padding: 6px 2px 0;
 }
 
+.sketch-detail-panels {
+  display: grid;
+  gap: 10px;
+  opacity: 0.72;
+}
+
+.sketch-detail-card {
+  border-radius: 16px;
+  background: rgba(248, 244, 255, 0.58);
+  border: 1px solid rgba(125, 92, 255, 0.12);
+  padding: 0;
+  overflow: hidden;
+}
+
+.sketch-detail-summary {
+  list-style: none;
+  cursor: pointer;
+  padding: 14px 16px;
+  font-size: 0.88rem;
+  font-weight: 700;
+  color: rgba(91, 67, 165, 0.82);
+  user-select: none;
+}
+
+.sketch-detail-summary::-webkit-details-marker {
+  display: none;
+}
+
+.sketch-detail-card[open] .sketch-detail-summary {
+  border-bottom: 1px solid var(--game-line);
+  background: var(--game-surface-strong);
+}
+
+.sketch-detail-card .sketch-history-list,
+.sketch-detail-card .sketch-live-grid {
+  padding: 12px 14px 14px;
+}
+
 .sketch-live-title {
   text-align: left;
   margin-bottom: 4px;
+  font-size: 1rem;
+  color: #5b43a5;
+}
+
+.sketch-live-grid {
+  gap: 10px;
+}
+
+.sketch-live-card {
+  min-height: 88px;
+  padding: 12px 14px;
+  border-radius: 16px;
+  background: #fffdf8;
+  border: 1px solid var(--game-line);
+}
+
+.sketch-live-card:nth-child(2n) {
+  background: #fffdf8;
+}
+
+.sketch-live-card:nth-child(3n) {
+  background: #fffdf8;
+}
+
+.sketch-live-player {
+  font-size: 0.95rem;
+  color: #5b43a5;
+}
+
+.sketch-live-words,
+.sketch-live-empty,
+.sketch-live-typing {
+  font-size: 0.88rem;
+  color: #263043;
+}
+
+.sketch-challenge-modal {
+  background: #fffdf8;
+  border-color: var(--game-line);
+}
+
+.sketch-challenge-eyebrow {
+  margin: 0 0 8px;
+  color: #5b43a5;
+  font-size: 0.78rem;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.sketch-challenge-title {
+  color: #5b43a5;
+  margin-bottom: 18px;
+}
+
+.sketch-challenge-stats {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+  margin-bottom: 18px;
+}
+
+.sketch-challenge-stat {
+  border-radius: 14px;
+  padding: 12px;
+  background: var(--game-surface);
+}
+
+.sketch-challenge-stat:nth-child(2) {
+  background: var(--game-surface);
+}
+
+.sketch-challenge-stat:nth-child(3) {
+  background: var(--game-surface);
+}
+
+.sketch-challenge-stat span,
+.sketch-challenge-stat strong {
+  display: block;
+}
+
+.sketch-challenge-stat span {
+  color: rgba(38, 48, 67, 0.68);
+  font-size: 0.76rem;
+  font-weight: 700;
+}
+
+.sketch-challenge-stat strong {
+  margin-top: 3px;
+  color: #263043;
+  overflow-wrap: anywhere;
+}
+
+.sketch-challenge-progress {
+  margin-top: 16px;
+  border-radius: 14px;
+  padding: 12px;
+  background: var(--game-surface);
 }
 
 @media (max-width: 860px) {
@@ -824,9 +1306,10 @@
 
   .sketch-stage-turn {
     min-width: 0;
+    justify-items: start;
   }
 
-  .sketch-summary-row {
+  .sketch-challenge-stats {
     grid-template-columns: 1fr;
   }
 }

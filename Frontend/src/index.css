@@ -1,12 +1,24 @@
 @import url('https://fonts.googleapis.com/css2?family=Fraunces:wght@500;700&family=Work+Sans:wght@400;500;600&display=swap');
 
 :root {
-  --bg-top: #f7efe8;
-  --bg-bottom: #efe2d4;
-  --ink: #2b1d17;
-  --accent: #b36a4a;
-  --card-bg: #fffaf5;
-  --card-border: rgba(179, 106, 74, 0.5);
+  --bg-top: #cb9fac;
+  --bg-bottom: #1d705e;
+  --ink: #263043;
+  --accent: #7d5cff;
+  --card-bg: #fffdf8;
+  --card-border: rgba(125, 92, 255, 0.32);
+  --pastel-pink: #ffd6e7;
+  --pastel-peach: #ffdfbf;
+  --pastel-yellow: #fff2a8;
+  --pastel-mint: #c8f7dc;
+  --pastel-blue: #cde8ff;
+  --pastel-lilac: #e2d4ff;
+  --game-surface: #f8f4ff;
+  --game-surface-strong: #e2d4ff;
+  --game-line: rgba(125, 92, 255, 0.18);
+  --berry: #b5477a;
+  --ocean: #276a90;
+  --forest: #2f7a57;
   --display: 'Fraunces', 'Times New Roman', serif;
   --body: 'Work Sans', 'Segoe UI', sans-serif;
 
@@ -23,10 +35,7 @@
 body {
   margin: 0;
   min-height: 100svh;
-  background:
-    radial-gradient(circle at 20% 20%, rgba(179, 106, 74, 0.08), transparent 50%),
-    radial-gradient(circle at 80% 0%, rgba(72, 98, 106, 0.08), transparent 45%),
-    linear-gradient(180deg, var(--bg-top), var(--bg-bottom));
+  background: var(--bg-top);
 }
 
 #root {
