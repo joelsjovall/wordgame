@@ -571,6 +571,7 @@ function GameLobbyPage() {
 
     return () => {
       isMounted = false;
+      isLobbyRefreshInFlight.current = false;
       eventSource?.close();
       window.clearInterval(intervalId);
     };
