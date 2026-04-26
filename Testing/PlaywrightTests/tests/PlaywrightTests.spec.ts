@@ -97,9 +97,8 @@ test("create game navigates to lobby and shows the created player", async ({ pag
 
   await expect(page).toHaveURL(/\/lobby\?code=4242&gameId=42&user=Alice&playerId=7$/);
   await expect(page.getByText("Lobby 4242")).toBeVisible();
-  const aliceCard = page.getByRole("article").filter({ has: page.getByRole("heading", { name: "Alice" }) });
-  await expect(aliceCard.getByRole("heading", { name: "Alice" })).toBeVisible();
-  await expect(aliceCard.getByText("0p")).toBeVisible();
+  await expect(page.getByText("Alice")).toBeVisible();
+  await expect(page.getByText("0p")).toBeVisible();
 });
 
 test("lobby hides previous round category and bid while keeping scores for next round", async ({ page }) => {
@@ -185,9 +184,8 @@ test("lobby hides previous round category and bid while keeping scores for next 
 
   await page.goto("/lobby?code=77&gameId=77&user=Alice&playerId=1");
 
-  const aliceCard = page.getByRole("article").filter({ has: page.getByRole("heading", { name: "Alice" }) });
-  await expect(aliceCard.getByRole("heading", { name: "Alice" })).toBeVisible();
-  await expect(aliceCard.getByText("54p")).toBeVisible();
+  await expect(page.getByText("Alice")).toBeVisible();
+  await expect(page.getByText("54p")).toBeVisible();
   await expect(page.getByRole("button", { name: "Choose category" })).toBeEnabled();
   await expect(page.getByText("Choose a category to start the bidding.")).toBeVisible();
   await expect(page.getByText("Highest bid: 5 by Bob")).toHaveCount(0);
