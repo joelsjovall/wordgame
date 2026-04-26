@@ -149,6 +149,12 @@ const previewCategories: Category[] = [
   { id: 13, name: "World Cup 2026 teams", difficulty: "hard", points: 3 },
 ];
 
+const previewValidWordsByCategoryId: Record<number, string[]> = {
+  11: ["stockholm", "oslo", "copenhagen", "helsinki", "paris", "berlin", "madrid", "rome", "lisbon", "vienna"],
+  12: ["volvo", "bmw", "saab", "ferrari", "bugatti", "toyota", "ford", "honda", "audi", "mercedes", "tesla"],
+  13: ["sweden", "england", "france", "brazil", "argentina", "japan", "germany", "spain", "portugal", "usa"],
+};
+
 const previewGameState: GameStateResponse = {
   gameId: 121,
   currentRoundId: 77,
@@ -893,7 +899,10 @@ function GameLobbyPage() {
     if (isPreviewMode) {
       const normalized = trimmed.toLowerCase();
       const alreadySubmitted = submittedWords.some((word) => word.toLowerCase() === normalized);
-      const accepted = !alreadySubmitted && normalized.length > 2;
+      const activeCategoryId = gameState?.categoryId ?? roundResults?.category.categoryId ?? 0;
+      const validPreviewWords = previewValidWordsByCategoryId[activeCategoryId] ?? [];
+      const isValidForCategory = validPreviewWords.includes(normalized);
+      const accepted = !alreadySubmitted && isValidForCategory;
 
       setCurrentWord("");
       setResults((previousResults) => [
@@ -919,7 +928,7 @@ function GameLobbyPage() {
         ));
       }
 
-      setSubmissionError(accepted ? "" : "Preview mode marked this word as invalid or duplicate.");
+      setSubmissionError(accepted ? "" : alreadySubmitted ? "You already used that word." : "That word is not valid for this category.");
       return;
     }
 
@@ -1369,6 +1378,9 @@ function GameLobbyPage() {
           : "Watch the round";
 
   const wordsLeftToType = Math.max(0, (highestBidCount ?? 0) - submittedWords.length);
+  const challengeProgressPercent = highestBidCount
+    ? Math.min(100, Math.round((submittedWords.length / highestBidCount) * 100))
+    : 0;
   const currentPlayerCard = topPlayers.find((player) => Number(player.id) === activePlayerId) ?? null;
   const activeTurnName = currentPlayerCard?.username ?? currentTurnPlayerName ?? "Waiting...";
   const stageInstruction = canChooseCategory
@@ -1422,8 +1434,8 @@ function GameLobbyPage() {
       return result.submittedBy.toLowerCase() === activeTurnName.toLowerCase();
     })
     .slice(-6);
-  const shouldShowAnswerPanel = !canChooseCategory && currentAnswerCards.length > 0;
-  const shouldShowDetailPanels = !canChooseCategory && !isRoundStartPending;
+  const shouldShowAnswerPanel = !canChooseCategory && !canSubmitWords && currentAnswerCards.length > 0;
+  const shouldShowDetailPanels = !canChooseCategory && !isRoundStartPending && !canSubmitWords;
 
   return (
     <main className="page">
@@ -1487,7 +1499,7 @@ function GameLobbyPage() {
 
         <div className="sketch-lobby-body">
           <section className="sketch-main-column">
-            <section className="sketch-stage-card">
+            <section className={`sketch-stage-card${canSubmitWords ? " is-writing" : ""}`}>
               <div className="sketch-stage-header">
                 <div>
                   <p className="sketch-stage-kicker">{primaryActionLabel}</p>
@@ -1503,6 +1515,79 @@ function GameLobbyPage() {
               <p className="sketch-turn-status">{roundMessage}</p>
               <div className={`sketch-stage-grid${shouldShowAnswerPanel ? "" : " is-focused"}`}>
                 <div className="sketch-stage-main">
+                  {canSubmitWords ? (
+                    <div className="sketch-writing-focus">
+                      <div className="sketch-writing-hero">
+                        <div className="sketch-writing-timer" aria-label={countdownSeconds !== null ? `${countdownSeconds} seconds left` : "No timer"}>
+                          <span>{countdownSeconds !== null ? countdownSeconds : "--"}</span>
+                          <small>sec</small>
+                        </div>
+                        <div>
+                          <p className="sketch-stage-kicker">Typing challenge</p>
+                          <h3 className="sketch-writing-title">{shownCategoryName ?? "Unknown category"}</h3>
+                          <p className="sketch-writing-copy">
+                            Add {highestBidCount ?? 0} accepted words before time runs out.
+                          </p>
+                        </div>
+                      </div>
+
+                      <div className="sketch-writing-progress" aria-label={`${submittedWords.length} of ${highestBidCount ?? 0} words accepted`}>
+                        <div>
+                          <span>Accepted</span>
+                          <strong>{submittedWords.length}/{highestBidCount ?? 0}</strong>
+                        </div>
+                        <div className="sketch-writing-meter" aria-hidden="true">
+                          <span style={{ width: `${challengeProgressPercent}%` }} />
+                        </div>
+                        <p>{wordsLeftToType === 0 ? "All words done." : `${wordsLeftToType} left`}</p>
+                      </div>
+
+                      <div className="sketch-writing-input-row">
+                        <label className="sketch-field-label" htmlFor="word-input">Type a word</label>
+                        <div className="sketch-writing-input-wrap">
+                          <input
+                            id="word-input"
+                            className="sketch-word-input sketch-writing-input"
+                            type="text"
+                            placeholder="Type a word and press Enter"
+                            value={currentWord}
+                            onChange={(e) => setCurrentWord(e.target.value)}
+                            onKeyDown={handleKeyDown}
+                            disabled={!canSubmitWords}
+                            autoFocus
+                          />
+                          <button
+                            className="primary sketch-add-word-button"
+                            type="button"
+                            onClick={() => void submitWord()}
+                            disabled={!currentWord.trim()}
+                          >
+                            Add word
+                          </button>
+                        </div>
+                      </div>
+
+                      {submittedWords.length > 0 ? (
+                        <div className="sketch-accepted-strip" aria-label="Accepted words">
+                          {submittedWords.map((word) => (
+                            <span key={word}>{word}</span>
+                          ))}
+                        </div>
+                      ) : (
+                        <p className="sketch-writing-empty">Accepted words will appear here.</p>
+                      )}
+
+                      <div className="sketch-feedback-row">
+                        {submissionError && <p className="sketch-feedback-text is-error">{submissionError}</p>}
+                        {submissionSummary && (
+                          <p className="sketch-feedback-text">
+                            {submissionSummary.succeeded ? "Challenge succeeded." : "Challenge failed."} Awarded points: {submissionSummary.awardedPoints}
+                          </p>
+                        )}
+                      </div>
+                    </div>
+                  ) : (
+                  <>
                   <div className="sketch-summary-card">
                     <span className="sketch-summary-label">Current bid</span>
                     <p className="sketch-summary-sentence">
@@ -1603,6 +1688,8 @@ function GameLobbyPage() {
                       </p>
                     )}
                   </div>
+                  </>
+                  )}
                 </div>
 
                 {shouldShowAnswerPanel ? (
@@ -1719,57 +1806,6 @@ function GameLobbyPage() {
         </div>
       )}
 
-      {canSubmitWords && (
-        <div className="modal-backdrop">
-          <div className="modal-card sketch-challenge-modal" onClick={(e) => e.stopPropagation()}>
-            <p className="sketch-challenge-eyebrow">Your challenge</p>
-            <h2 className="title modal-title sketch-challenge-title">
-              You need to type {highestBidCount ?? 0} words
-            </h2>
-
-            <div className="sketch-challenge-stats">
-              {countdownSeconds !== null ? (
-                <div className="sketch-challenge-stat">
-                  <span>Time left</span>
-                  <strong>{countdownSeconds}s</strong>
-                </div>
-              ) : null}
-              <div className="sketch-challenge-stat">
-                <span>Words left</span>
-                <strong>{wordsLeftToType}</strong>
-              </div>
-              <div className="sketch-challenge-stat">
-                <span>Category</span>
-                <strong>{shownCategoryName ?? "Unknown"}</strong>
-              </div>
-            </div>
-
-            <div className="sketch-input-block">
-              <label className="sketch-field-label" htmlFor="word-input">Type a word</label>
-              <input
-                id="word-input"
-                className="sketch-word-input"
-                type="text"
-                placeholder="Type a word and press Enter"
-                value={currentWord}
-                onChange={(e) => setCurrentWord(e.target.value)}
-                onKeyDown={handleKeyDown}
-                disabled={!canSubmitWords}
-                autoFocus
-              />
-            </div>
-
-            {submittedWords.length > 0 ? (
-              <div className="sketch-challenge-progress">
-                <span className="sketch-summary-label">Accepted words</span>
-                <p className="sketch-feedback-text">{submittedWords.join(", ")}</p>
-              </div>
-            ) : null}
-
-            {submissionError ? <p className="sketch-feedback-text is-error">{submissionError}</p> : null}
-          </div>
-        </div>
-      )}
     </main>
   );
 }

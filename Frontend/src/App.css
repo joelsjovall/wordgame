@@ -1272,6 +1272,171 @@
   color: #263043;
 }
 
+.sketch-stage-card.is-writing .sketch-stage-header {
+  margin-bottom: 10px;
+}
+
+.sketch-stage-card.is-writing .sketch-stage-title {
+  font-size: clamp(1.8rem, 3vw, 2.55rem);
+}
+
+.sketch-writing-focus {
+  display: grid;
+  gap: 18px;
+  width: min(760px, 100%);
+  padding: clamp(20px, 4vw, 34px);
+  border-radius: 24px;
+  background: rgba(255, 253, 248, 0.14);
+  border: 1px solid rgba(255, 253, 248, 0.22);
+  box-shadow: 0 18px 40px rgba(38, 48, 67, 0.12);
+}
+
+.sketch-writing-hero {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  align-items: center;
+  gap: 18px;
+}
+
+.sketch-writing-timer {
+  width: 112px;
+  aspect-ratio: 1;
+  border-radius: 999px;
+  display: grid;
+  place-items: center;
+  align-content: center;
+  background: #fffdf8;
+  color: #5b43a5;
+  box-shadow: 0 14px 30px rgba(38, 48, 67, 0.16);
+}
+
+.sketch-writing-timer span {
+  font-family: var(--display);
+  font-size: 2.45rem;
+  line-height: 0.9;
+}
+
+.sketch-writing-timer small {
+  margin-top: 4px;
+  color: rgba(91, 67, 165, 0.7);
+  font-size: 0.72rem;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.sketch-writing-title {
+  margin: 0;
+  color: #fffdf8;
+  font-family: var(--display);
+  font-size: clamp(2.2rem, 5vw, 4rem);
+  line-height: 0.98;
+  overflow-wrap: anywhere;
+}
+
+.sketch-writing-copy {
+  margin: 8px 0 0;
+  color: rgba(255, 253, 248, 0.78);
+  font-size: 1rem;
+  font-weight: 650;
+}
+
+.sketch-writing-progress {
+  display: grid;
+  gap: 9px;
+  color: #fffdf8;
+}
+
+.sketch-writing-progress div:first-child {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  font-weight: 800;
+}
+
+.sketch-writing-progress span {
+  color: rgba(255, 253, 248, 0.68);
+  font-size: 0.78rem;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+
+.sketch-writing-progress strong {
+  font-size: 1.1rem;
+}
+
+.sketch-writing-progress p {
+  margin: 0;
+  color: rgba(255, 253, 248, 0.72);
+  font-size: 0.9rem;
+}
+
+.sketch-writing-meter {
+  height: 14px;
+  overflow: hidden;
+  border-radius: 999px;
+  background: rgba(255, 253, 248, 0.22);
+}
+
+.sketch-writing-meter span {
+  display: block;
+  height: 100%;
+  min-width: 8px;
+  border-radius: inherit;
+  background: #bff7c8;
+  transition: width 180ms ease;
+}
+
+.sketch-writing-input-row {
+  display: grid;
+  gap: 8px;
+}
+
+.sketch-writing-input-wrap {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 10px;
+  align-items: stretch;
+}
+
+.sketch-writing-input {
+  min-height: 58px;
+  font-size: 1.1rem;
+  font-weight: 700;
+}
+
+.sketch-add-word-button {
+  min-width: 134px;
+  padding-inline: 20px;
+}
+
+.sketch-add-word-button:disabled {
+  cursor: not-allowed;
+  opacity: 0.56;
+}
+
+.sketch-accepted-strip {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.sketch-accepted-strip span {
+  border-radius: 999px;
+  padding: 8px 12px;
+  background: #e7ffe9;
+  color: #2f7a57;
+  font-size: 0.9rem;
+  font-weight: 800;
+}
+
+.sketch-writing-empty {
+  margin: 0;
+  color: rgba(255, 253, 248, 0.62);
+  font-size: 0.9rem;
+}
+
 .sketch-challenge-modal {
   background: #fffdf8;
   border-color: var(--game-line);
@@ -1351,6 +1516,20 @@
   .sketch-challenge-stats {
     grid-template-columns: 1fr;
   }
+
+  .sketch-writing-hero,
+  .sketch-writing-input-wrap {
+    grid-template-columns: 1fr;
+  }
+
+  .sketch-writing-hero {
+    justify-items: center;
+    text-align: center;
+  }
+
+  .sketch-add-word-button {
+    width: 100%;
+  }
 }
 
 @media (max-width: 600px) {
@@ -1385,5 +1564,14 @@
 
   .sketch-stage-actions .primary {
     width: 100%;
+  }
+
+  .sketch-writing-focus {
+    padding: 18px;
+    border-radius: 18px;
+  }
+
+  .sketch-writing-timer {
+    width: 92px;
   }
 }
