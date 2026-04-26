@@ -16,6 +16,11 @@ async function installApiMocks(page: Page, handlers: Record<string, ApiHandler>)
     const key = `${route.request().method()} ${url.pathname}`;
     const handler = handlers[key];
 
+    if (route.request().method() === "GET" && url.pathname.endsWith("/events")) {
+      await route.fulfill({ status: 204 });
+      return;
+    }
+
     if (!handler) {
       throw new Error(`Unhandled API request in Playwright test: ${key}`);
     }

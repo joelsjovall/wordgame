@@ -8,33 +8,27 @@
 }
 
 .card {
-  width: min(720px, 92vw);
-  background: var(--card-bg);
-  border: 2px solid var(--card-border);
-  border-radius: 30px;
-  padding: 56px 48px 64px;
+  width: min(620px, 92vw);
+  background: transparent;
+  border: 0;
+  border-radius: 0;
+  padding: 28px 0;
   text-align: center;
-  box-shadow: 0 18px 45px rgba(84, 71, 130, 0.16);
+  box-shadow: none;
   position: relative;
 }
 
 .card::before {
-  content: '';
-  position: absolute;
-  inset: -12px;
-  border: 2px solid var(--card-border);
-  border-radius: 36px;
-  transform: rotate(-0.45deg);
-  opacity: 0.45;
-  pointer-events: none;
+  display: none;
 }
 
 .title {
   font-family: var(--display);
-  font-size: clamp(2.2rem, 4vw, 3.2rem);
-  color: #7d5cff;
+  font-size: clamp(3rem, 7vw, 5.4rem);
+  color: #fffdf8;
   letter-spacing: 0.5px;
-  margin: 0 0 48px;
+  margin: 0 0 42px;
+  text-shadow: 0 2px 18px rgba(38, 48, 67, 0.14);
 }
 
 .primary {
@@ -68,43 +62,46 @@
 }
 
 .divider {
-  width: 120px;
-  height: 2px;
-  background: var(--card-border);
-  margin: 50px auto 36px;
+  width: min(260px, 58vw);
+  height: 1px;
+  background: rgba(255, 253, 248, 0.34);
+  margin: 34px auto 26px;
   border-radius: 999px;
 }
 
 .code-label {
   display: block;
   font-family: var(--body);
-  font-weight: 600;
-  font-size: 1.2rem;
-  color: var(--ink);
-  margin-bottom: 16px;
+  font-weight: 800;
+  font-size: 0.82rem;
+  color: rgba(255, 253, 248, 0.78);
+  margin-bottom: 12px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
 }
 
 .code-input {
-  width: min(320px, 80%);
-  border: none;
-  border-bottom: 2px solid var(--card-border);
-  background: transparent;
+  width: min(340px, 86%);
+  border: 1px solid rgba(255, 253, 248, 0.38);
+  border-bottom: 2px solid rgba(255, 253, 248, 0.7);
+  border-radius: 12px;
+  background: rgba(255, 253, 248, 0.9);
   text-align: center;
   font-size: 1.1rem;
-  padding: 8px 4px 10px;
+  padding: 13px 16px;
   letter-spacing: 3px;
   font-family: var(--body);
   color: var(--ink);
 }
 
 .code-input:focus {
-  outline: none;
-  border-bottom-color: var(--accent);
+  outline: 3px solid rgba(255, 253, 248, 0.22);
+  border-bottom-color: #5737df;
 }
 
 .code-input::placeholder {
   letter-spacing: 2px;
-  color: rgba(98, 74, 63, 0.45);
+  color: rgba(38, 48, 67, 0.42);
 }
 
 .join-button {
@@ -118,9 +115,9 @@
   justify-content: center;
   padding: 10px 26px;
   border-radius: 999px;
-  border: 2px solid #7d5cff;
-  color: #5b43a5;
-  background: var(--game-surface-strong);
+  border: 2px solid rgba(255, 253, 248, 0.35);
+  color: #fffdf8;
+  background: rgba(255, 253, 248, 0.16);
   text-decoration: none;
   font-family: var(--display);
   font-size: 1.05rem;
@@ -130,13 +127,55 @@
 
 .rules-link:hover {
   transform: translateY(-1px);
-  background-color: var(--game-surface);
-  box-shadow: 0 10px 20px rgba(125, 92, 255, 0.18);
+  background-color: rgba(255, 253, 248, 0.24);
+  box-shadow: 0 10px 20px rgba(38, 48, 67, 0.12);
 }
 
 .rules-link:focus-visible {
-  outline: 3px solid rgba(125, 92, 255, 0.28);
+  outline: 3px solid rgba(255, 253, 248, 0.28);
   outline-offset: 3px;
+}
+
+.card > p {
+  max-width: 360px;
+  margin: -8px auto 24px;
+  color: rgba(255, 253, 248, 0.74);
+  line-height: 1.5;
+}
+
+.card > a:not(.rules-link) {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 10px 24px;
+  border-radius: 999px;
+  border: 2px solid rgba(255, 253, 248, 0.35);
+  background: rgba(255, 253, 248, 0.16);
+  color: #fffdf8;
+  font-family: var(--display);
+  text-decoration: none;
+  transition: transform 0.2s ease, background-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.card > a:not(.rules-link):hover {
+  transform: translateY(-1px);
+  background: rgba(255, 253, 248, 0.24);
+  box-shadow: 0 10px 20px rgba(38, 48, 67, 0.12);
+}
+
+.session-code-display {
+  width: min(360px, 90%);
+  margin: 0 auto 18px;
+  padding: 14px 16px;
+  border-radius: 12px;
+  background: rgba(255, 253, 248, 0.16);
+  border: 1px solid rgba(255, 253, 248, 0.28);
+}
+
+.session-code-display h2 {
+  margin: 0;
+  color: #fffdf8;
+  font-size: 1.05rem;
 }
 
 .sketch-lobby-card {

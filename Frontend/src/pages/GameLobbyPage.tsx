@@ -206,6 +206,9 @@ const previewResults: LocalResult[] = [
   { word: "Ferrari", correct: false, submittedBy: "Maja" },
 ];
 
+const LOBBY_POLL_INTERVAL_MS = 2000;
+const LOBBY_FALLBACK_POLL_INTERVAL_MS = 10000;
+
 function GameLobbyPage() {
   const location = useLocation();
   const queryParams = new URLSearchParams(location.search);
@@ -528,26 +531,18 @@ function GameLobbyPage() {
       );
         }
 
-        let currentRoundId = stateRoundId > 0 ? stateRoundId : resolvedRoundId;
-
-        if (currentRoundId <= 0) {
-          const currentRoundResponse = await fetch(`${API_BASE_URL}/api/games/${resolvedGameId}/current-round`);
-          if (currentRoundResponse.ok) {
-            const currentRoundData = (await currentRoundResponse.json()) as { currentRoundId?: number; };
-            currentRoundId = Number(currentRoundData.currentRoundId ?? 0);
-            if (Number.isFinite(currentRoundId) && currentRoundId > 0 && isMounted) {
-              setResolvedRoundId((previousRoundId) =>
-                previousRoundId === currentRoundId
-                  ? previousRoundId
-                  : (resetRoundUiState({ clearRoundResults: true }), currentRoundId)
-              );
-            }
-          }
-        }
+        const currentRoundId = stateRoundId;
 
         if (currentRoundId > 0) {
-          void loadRoundResults(currentRoundId);
-          void loadLiveDrafts(currentRoundId);
+          if (state.phase !== "round_start_pending" && state.phase !== "category_selection") {
+            void loadRoundResults(currentRoundId);
+          }
+
+          if (state.phase === "challenge_active") {
+            void loadLiveDrafts(currentRoundId);
+          } else {
+            setLiveDrafts([]);
+          }
         } else {
           setRoundResults(null);
           setLiveDrafts([]);
@@ -562,15 +557,24 @@ function GameLobbyPage() {
     };
 
     void loadLobbyState();
+    const eventSource = typeof EventSource === "undefined"
+      ? null
+      : new EventSource(`${API_BASE_URL}/api/games/${resolvedGameId}/events`);
+
+    eventSource?.addEventListener("game-updated", () => {
+      void loadLobbyState();
+    });
+
     const intervalId = window.setInterval(() => {
       void loadLobbyState();
-    }, 500);
+    }, eventSource ? LOBBY_FALLBACK_POLL_INTERVAL_MS : LOBBY_POLL_INTERVAL_MS);
 
     return () => {
       isMounted = false;
+      eventSource?.close();
       window.clearInterval(intervalId);
     };
-  }, [isPreviewMode, resolvedGameId, resolvedRoundId]);
+  }, [isPreviewMode, resolvedGameId]);
 
   const hasActiveCountdown = countdownSeconds !== null;
 
@@ -627,8 +631,7 @@ function GameLobbyPage() {
       return;
     }
 
-    const existingLiveDraft = liveDrafts.find((draft) => draft.playerId === resolvedPlayerId);
-    if (submittedWords.length === 0 && !currentWord.trim() && !existingLiveDraft) {
+    if (submittedWords.length === 0 && !currentWord.trim()) {
       return;
     }
 
@@ -655,7 +658,7 @@ function GameLobbyPage() {
     return () => {
       window.clearTimeout(timeoutId);
     };
-  }, [currentWord, isPreviewMode, liveDrafts, resolvedPlayerId, resolvedRoundId, submittedWords]);
+  }, [currentWord, isPreviewMode, resolvedPlayerId, resolvedRoundId, submittedWords]);
 
   const fetchCategoriesByDifficulty = async (difficulty: "easy" | "medium" | "hard") => {
     setSelectedDifficulty(difficulty);

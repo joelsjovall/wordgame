@@ -17,6 +17,7 @@ public static class GameRoundsEndpoints
             AppDbContext dbContext,
             GameFlowService gameFlowService,
             RoundLiveDraftService roundLiveDraftService,
+            GameUpdateNotifier gameUpdateNotifier,
             CancellationToken cancellationToken) =>
         {
             await gameFlowService.ProcessRoundTimeoutsAsync(roundId, cancellationToken);
@@ -143,6 +144,7 @@ public static class GameRoundsEndpoints
             roundLiveDraftService.ClearRound(roundId);
 
             await dbContext.SaveChangesAsync(cancellationToken);
+            gameUpdateNotifier.NotifyGameUpdated(round.GameId);
 
             return Results.Created($"/api/rounds/{roundId}/challenges/{challenge.Id}", new
             {
@@ -165,6 +167,7 @@ public static class GameRoundsEndpoints
             GameFlowService gameFlowService,
             GameTurnStateService gameTurnStateService,
             RoundLiveDraftService roundLiveDraftService,
+            GameUpdateNotifier gameUpdateNotifier,
             CancellationToken cancellationToken) =>
         {
             await gameFlowService.ProcessRoundTimeoutsAsync(roundId, cancellationToken);
@@ -245,6 +248,8 @@ public static class GameRoundsEndpoints
                 validationResult.ValidUniqueWordCount,
                 cancellationToken);
 
+            gameUpdateNotifier.NotifyGameUpdated(round.GameId);
+
             return Results.Ok(new
             {
                 roundId = round.Id,
@@ -271,6 +276,7 @@ public static class GameRoundsEndpoints
             AppDbContext dbContext,
             GameFlowService gameFlowService,
             RoundLiveDraftService roundLiveDraftService,
+            GameUpdateNotifier gameUpdateNotifier,
             CancellationToken cancellationToken) =>
         {
             await gameFlowService.ProcessRoundTimeoutsAsync(roundId, cancellationToken);
@@ -320,6 +326,7 @@ public static class GameRoundsEndpoints
                 request.PlayerId,
                 request.CurrentInput,
                 request.Words ?? []);
+            gameUpdateNotifier.NotifyGameUpdated(round.GameId);
 
             var updatedDraft = roundLiveDraftService.GetDrafts(roundId)
                 .FirstOrDefault(draft => draft.PlayerId == request.PlayerId);
@@ -481,6 +488,7 @@ public static class GameRoundsEndpoints
             IWordValidationService wordValidationService,
             GameFlowService gameFlowService,
             RoundLiveDraftService roundLiveDraftService,
+            GameUpdateNotifier gameUpdateNotifier,
             CancellationToken cancellationToken) =>
         {
             await gameFlowService.ProcessRoundTimeoutsAsync(roundId, cancellationToken);
@@ -587,6 +595,8 @@ public static class GameRoundsEndpoints
                         .Where(wordEntry => wordEntry.IsValid && !wordEntry.IsDuplicate)
                         .Select(wordEntry => wordEntry.OriginalWord));
             }
+
+            gameUpdateNotifier.NotifyGameUpdated(round.GameId);
 
             return Results.Ok(new
             {

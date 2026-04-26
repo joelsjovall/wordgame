@@ -6,7 +6,10 @@ namespace Server.Controllers;
 
 [ApiController]
 [Route("api/rounds")]
-public class RoundsController(IRoundService roundService, GameFlowService gameFlowService) : ControllerBase
+public class RoundsController(
+    IRoundService roundService,
+    GameFlowService gameFlowService,
+    GameUpdateNotifier gameUpdateNotifier) : ControllerBase
 {
     [HttpPost("{roundId:int}/bid")]
     public async Task<IActionResult> PlaceBid(int roundId, [FromBody] PlaceBidRequest request, CancellationToken cancellationToken)
@@ -26,6 +29,7 @@ public class RoundsController(IRoundService roundService, GameFlowService gameFl
         try
         {
             var result = await roundService.PlaceBidAsync(roundId, request.PlayerId, request.BidCount, cancellationToken);
+            gameUpdateNotifier.NotifyGameUpdated(result.Round.GameId);
 
             return Ok(new
             {
