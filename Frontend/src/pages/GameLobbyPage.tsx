@@ -149,6 +149,12 @@ const previewCategories: Category[] = [
   { id: 13, name: "World Cup 2026 teams", difficulty: "hard", points: 3 },
 ];
 
+const previewValidWordsByCategoryId: Record<number, string[]> = {
+  11: ["stockholm", "oslo", "copenhagen", "helsinki", "paris", "berlin", "madrid", "rome", "lisbon", "vienna"],
+  12: ["volvo", "bmw", "saab", "ferrari", "bugatti", "toyota", "ford", "honda", "audi", "mercedes", "tesla"],
+  13: ["sweden", "england", "france", "brazil", "argentina", "japan", "germany", "spain", "portugal", "usa"],
+};
+
 const previewGameState: GameStateResponse = {
   gameId: 121,
   currentRoundId: 77,
@@ -215,6 +221,7 @@ function GameLobbyPage() {
   const isPreviewMode = queryParams.get("preview") === "1";
   const previewState = queryParams.get("previewState") || queryParams.get("state") || "";
   const isPreviewWritingWords = isPreviewMode && ["write", "writing", "challenge", "challenge_active"].includes(previewState);
+  const isPreviewBidding = isPreviewMode && ["bid", "bidding"].includes(previewState);
 
   const sessionCode = queryParams.get("code") || (isPreviewMode ? "121" : "");
   const username = queryParams.get("user") || (isPreviewMode ? "joellll111" : "");
@@ -246,9 +253,9 @@ function GameLobbyPage() {
   const [roundResults, setRoundResults] = useState<RoundResultsResponse | null>(isPreviewMode
     ? {
       ...previewRoundResults,
-      status: isPreviewWritingWords ? "challenge_active" : previewRoundResults.status,
-      currentPlayerId: isPreviewWritingWords ? 1 : previewRoundResults.currentPlayerId,
-      currentPlayerName: isPreviewWritingWords ? "joellll111" : previewRoundResults.currentPlayerName,
+      status: isPreviewWritingWords ? "challenge_active" : isPreviewBidding ? "bidding" : previewRoundResults.status,
+      currentPlayerId: isPreviewWritingWords || isPreviewBidding ? 1 : previewRoundResults.currentPlayerId,
+      currentPlayerName: isPreviewWritingWords || isPreviewBidding ? "joellll111" : previewRoundResults.currentPlayerName,
       deadlineUtc: previewRoundResults.deadlineUtc,
       secondsRemaining: isPreviewWritingWords ? 44 : previewRoundResults.secondsRemaining,
     }
@@ -256,9 +263,9 @@ function GameLobbyPage() {
   const [gameState, setGameState] = useState<GameStateResponse | null>(isPreviewMode
     ? {
       ...previewGameState,
-      phase: isPreviewWritingWords ? "challenge_active" : previewGameState.phase,
-      activePlayerId: isPreviewWritingWords ? 1 : previewGameState.activePlayerId,
-      activePlayerName: isPreviewWritingWords ? "joellll111" : previewGameState.activePlayerName,
+      phase: isPreviewWritingWords ? "challenge_active" : isPreviewBidding ? "bidding" : previewGameState.phase,
+      activePlayerId: isPreviewWritingWords || isPreviewBidding ? 1 : previewGameState.activePlayerId,
+      activePlayerName: isPreviewWritingWords || isPreviewBidding ? "joellll111" : previewGameState.activePlayerName,
       deadlineUtc: previewGameState.deadlineUtc,
       secondsRemaining: isPreviewWritingWords ? 44 : previewGameState.secondsRemaining,
     }
@@ -607,7 +614,7 @@ function GameLobbyPage() {
 
     previousPhaseRef.current = phase;
 
-    if (!didEnterPendingNextRoundPhase) {
+    if (!didEnterPendingNextRoundPhase || submissionSummary) {
       return;
     }
 
@@ -621,7 +628,7 @@ function GameLobbyPage() {
     return () => {
       window.clearTimeout(timeoutId);
     };
-  }, [gameState?.phase]);
+  }, [gameState?.phase, submissionSummary]);
 
   useEffect(() => {
     if (isPreviewMode) {
@@ -893,7 +900,10 @@ function GameLobbyPage() {
     if (isPreviewMode) {
       const normalized = trimmed.toLowerCase();
       const alreadySubmitted = submittedWords.some((word) => word.toLowerCase() === normalized);
-      const accepted = !alreadySubmitted && normalized.length > 2;
+      const activeCategoryId = gameState?.categoryId ?? roundResults?.category.categoryId ?? 0;
+      const validPreviewWords = previewValidWordsByCategoryId[activeCategoryId] ?? [];
+      const isValidForCategory = validPreviewWords.includes(normalized);
+      const accepted = !alreadySubmitted && isValidForCategory;
 
       setCurrentWord("");
       setResults((previousResults) => [
@@ -907,6 +917,7 @@ function GameLobbyPage() {
       ]);
 
       if (accepted) {
+        const acceptedWordCount = submittedWords.length + 1;
         setSubmittedWords((previousWords) => [...previousWords, trimmed]);
         setLiveDrafts((previousDrafts) => previousDrafts.map((draft) =>
           draft.playerId === resolvedPlayerId
@@ -917,9 +928,46 @@ function GameLobbyPage() {
             }
             : draft
         ));
+
+        if (highestBidCount && acceptedWordCount >= highestBidCount) {
+          const nextPlayerId = getNextPlayerId(resolvedPlayerId);
+          setSubmissionSummary({
+            roundId: resolvedRoundId,
+            playerId: resolvedPlayerId,
+            challengeId: 0,
+            requiredWordCount: highestBidCount,
+            validUniqueWordCount: acceptedWordCount,
+            succeeded: true,
+            awardedPoints: highestBidCount * (roundResults?.category.pointsPerWord ?? 1),
+            words: [],
+          });
+          setGameState((previousState) => previousState
+            ? {
+              ...previousState,
+              phase: "round_start_pending",
+              activePlayerId: nextPlayerId,
+              activePlayerName: getPlayerName(nextPlayerId),
+              deadlineUtc: null,
+              secondsRemaining: null,
+              readyPlayerIds: [],
+              readyPlayersCount: 0,
+              allPlayersReady: false,
+            }
+            : previousState);
+          setRoundResults((previousResults) => previousResults
+            ? {
+              ...previousResults,
+              status: "completed",
+              currentPlayerId: nextPlayerId,
+              currentPlayerName: getPlayerName(nextPlayerId),
+              deadlineUtc: null,
+              secondsRemaining: null,
+            }
+            : previousResults);
+        }
       }
 
-      setSubmissionError(accepted ? "" : "Preview mode marked this word as invalid or duplicate.");
+      setSubmissionError(accepted ? "" : alreadySubmitted ? "You already used that word." : "That word is not valid for this category.");
       return;
     }
 
@@ -1083,6 +1131,11 @@ function GameLobbyPage() {
         return;
       }
 
+      if (highestBidCount && bidCount <= highestBidCount) {
+        setSubmissionError(`Your bid must be at least ${highestBidCount + 1}.`);
+        return;
+      }
+
       const nextPlayerId = getNextPlayerId(resolvedPlayerId);
       setCurrentBidCount("");
       setGameState((previousState) => previousState
@@ -1125,6 +1178,11 @@ function GameLobbyPage() {
     const bidCount = Number(currentBidCount);
     if (!Number.isFinite(bidCount) || bidCount <= 0) {
       setSubmissionError("Enter a valid number before placing a bid.");
+      return;
+    }
+
+    if (highestBidCount && bidCount <= highestBidCount) {
+      setSubmissionError(`Your bid must be at least ${highestBidCount + 1}.`);
       return;
     }
 
@@ -1358,6 +1416,10 @@ function GameLobbyPage() {
   const canChallenge = canBid && !!highestBidCount && highestBidPlayerId !== resolvedPlayerId;
   const canSubmitWords = roundStatus === "challenge_active" && isMyTurn;
   const canSetOpeningBid = canChooseCategory && !!selectedCategory;
+  const minimumBidCount = (highestBidCount ?? 0) + 1;
+  const quickBidOptions = Array.from(new Set([minimumBidCount, minimumBidCount + 1, minimumBidCount + 2])).filter((value) => value > 0);
+  const bidCountValue = Number(currentBidCount || "");
+  const hasValidBidCount = Number.isFinite(bidCountValue) && bidCountValue >= minimumBidCount;
   const primaryActionLabel = canChooseCategory
     ? "Choose category"
     : isRoundStartPending
@@ -1369,6 +1431,9 @@ function GameLobbyPage() {
           : "Watch the round";
 
   const wordsLeftToType = Math.max(0, (highestBidCount ?? 0) - submittedWords.length);
+  const challengeProgressPercent = highestBidCount
+    ? Math.min(100, Math.round((submittedWords.length / highestBidCount) * 100))
+    : 0;
   const currentPlayerCard = topPlayers.find((player) => Number(player.id) === activePlayerId) ?? null;
   const activeTurnName = currentPlayerCard?.username ?? currentTurnPlayerName ?? "Waiting...";
   const stageInstruction = canChooseCategory
@@ -1422,11 +1487,16 @@ function GameLobbyPage() {
       return result.submittedBy.toLowerCase() === activeTurnName.toLowerCase();
     })
     .slice(-6);
-  const shouldShowAnswerPanel = !canChooseCategory && currentAnswerCards.length > 0;
-  const shouldShowDetailPanels = !canChooseCategory && !isRoundStartPending;
+  const challengeResultWords = results
+    .filter((result) => !result.pending)
+    .filter((result) => !result.submittedBy || result.submittedBy.toLowerCase() === username.toLowerCase())
+    .slice(-8);
+  const hasChallengeResult = !!submissionSummary;
+  const shouldShowAnswerPanel = !canChooseCategory && !canSubmitWords && currentAnswerCards.length > 0;
+  const shouldShowDetailPanels = !canChooseCategory && !isRoundStartPending && !canSubmitWords && !hasChallengeResult;
 
   return (
-    <main className="page">
+    <main className="page lobby-page">
       <section className="card sketch-lobby-card">
         <div className="sketch-lobby-top">
           <div className="sketch-meta-strip">
@@ -1487,7 +1557,7 @@ function GameLobbyPage() {
 
         <div className="sketch-lobby-body">
           <section className="sketch-main-column">
-            <section className="sketch-stage-card">
+            <section className={`sketch-stage-card${canSubmitWords ? " is-writing" : ""}`}>
               <div className="sketch-stage-header">
                 <div>
                   <p className="sketch-stage-kicker">{primaryActionLabel}</p>
@@ -1503,15 +1573,143 @@ function GameLobbyPage() {
               <p className="sketch-turn-status">{roundMessage}</p>
               <div className={`sketch-stage-grid${shouldShowAnswerPanel ? "" : " is-focused"}`}>
                 <div className="sketch-stage-main">
-                  <div className="sketch-summary-card">
-                    <span className="sketch-summary-label">Current bid</span>
-                    <p className="sketch-summary-sentence">
-                      {highestBidCount
-                        ? `${highestBidPlayerName ?? "Someone"} has bid that they can name ${highestBidCount} ${shownCategoryName ?? "words"}.`
-                        : shownCategoryName
-                          ? `No one has placed a bid for ${shownCategoryName} yet.`
-                          : "Choose a category to start the bidding."}
-                    </p>
+                  {hasChallengeResult ? (
+                    <div className={`sketch-result-card ${submissionSummary.succeeded ? "is-success" : "is-fail"}`}>
+                      <p className="sketch-stage-kicker">Challenge result</p>
+                      <h3 className="sketch-result-title">
+                        {submissionSummary.succeeded ? "Challenge cleared" : "Challenge failed"}
+                      </h3>
+                      <p className="sketch-result-copy">
+                        {submissionSummary.succeeded
+                          ? `${username || "The player"} found enough words and earned ${submissionSummary.awardedPoints} points.`
+                          : `${username || "The player"} found ${submissionSummary.validUniqueWordCount}/${submissionSummary.requiredWordCount} words.`}
+                      </p>
+
+                      <div className="sketch-result-stats">
+                        <div>
+                          <span>Accepted</span>
+                          <strong>{submissionSummary.validUniqueWordCount}/{submissionSummary.requiredWordCount}</strong>
+                        </div>
+                        <div>
+                          <span>Points</span>
+                          <strong>{submissionSummary.awardedPoints}</strong>
+                        </div>
+                        <div>
+                          <span>Next turn</span>
+                          <strong>{currentTurnPlayerName ?? activeTurnName}</strong>
+                        </div>
+                      </div>
+
+                      {challengeResultWords.length > 0 ? (
+                        <ul className="sketch-result-word-list" aria-label="Submitted words">
+                          {challengeResultWords.map((result, index) => (
+                            <li
+                              className={result.correct ? "correct" : "incorrect"}
+                              key={`${result.word}-${result.createdAt ?? index}-${index}`}
+                            >
+                              <span>{result.word}</span>
+                              <strong>{result.correct ? "Correct" : "Wrong"}</strong>
+                            </li>
+                          ))}
+                        </ul>
+                      ) : null}
+
+                      <div className="sketch-stage-actions single">
+                        <button className="primary" type="button" onClick={() => void markPlayerReady()} disabled={amIReady || isMarkingReady}>
+                          {isMarkingReady ? "Starting..." : amIReady ? "Ready" : "Start next round"}
+                        </button>
+                      </div>
+                    </div>
+                  ) : canSubmitWords ? (
+                    <div className="sketch-writing-focus">
+                      <div className="sketch-writing-hero">
+                        <div className="sketch-writing-timer" aria-label={countdownSeconds !== null ? `${countdownSeconds} seconds left` : "No timer"}>
+                          <span>{countdownSeconds !== null ? countdownSeconds : "--"}</span>
+                          <small>sec</small>
+                        </div>
+                        <div>
+                          <p className="sketch-stage-kicker">Typing challenge</p>
+                          <h3 className="sketch-writing-title">{shownCategoryName ?? "Unknown category"}</h3>
+                          <p className="sketch-writing-copy">
+                            Add {highestBidCount ?? 0} accepted words before time runs out.
+                          </p>
+                        </div>
+                      </div>
+
+                      <div className="sketch-writing-progress" aria-label={`${submittedWords.length} of ${highestBidCount ?? 0} words accepted`}>
+                        <div>
+                          <span>Accepted</span>
+                          <strong>{submittedWords.length}/{highestBidCount ?? 0}</strong>
+                        </div>
+                        <div className="sketch-writing-meter" aria-hidden="true">
+                          <span style={{ width: `${challengeProgressPercent}%` }} />
+                        </div>
+                        <p>{wordsLeftToType === 0 ? "All words done." : `${wordsLeftToType} left`}</p>
+                      </div>
+
+                      <div className="sketch-writing-input-row">
+                        <label className="sketch-field-label" htmlFor="word-input">Type a word</label>
+                        <div className="sketch-writing-input-wrap">
+                          <input
+                            id="word-input"
+                            className="sketch-word-input sketch-writing-input"
+                            type="text"
+                            placeholder="Type a word and press Enter"
+                            value={currentWord}
+                            onChange={(e) => setCurrentWord(e.target.value)}
+                            onKeyDown={handleKeyDown}
+                            disabled={!canSubmitWords}
+                            autoFocus
+                          />
+                          <button
+                            className="primary sketch-add-word-button"
+                            type="button"
+                            onClick={() => void submitWord()}
+                            disabled={!currentWord.trim()}
+                          >
+                            Add word
+                          </button>
+                        </div>
+                      </div>
+
+                      {submittedWords.length > 0 ? (
+                        <div className="sketch-accepted-strip" aria-label="Accepted words">
+                          {submittedWords.map((word) => (
+                            <span key={word}>{word}</span>
+                          ))}
+                        </div>
+                      ) : (
+                        <p className="sketch-writing-empty">Accepted words will appear here.</p>
+                      )}
+
+                      <div className="sketch-feedback-row">
+                        {submissionError && <p className="sketch-feedback-text is-error">{submissionError}</p>}
+                      </div>
+                    </div>
+                  ) : (
+                  <>
+                  <div className={`sketch-bid-card${canBid ? " is-actionable" : ""}`}>
+                    <div className="sketch-bid-meta">
+                      <span>{shownCategoryName ? "Category" : "Current bid"}</span>
+                      <strong>{shownCategoryName ?? "No category selected"}</strong>
+                    </div>
+
+                    {highestBidCount ? (
+                      <div className="sketch-bid-main">
+                        <span className="sketch-summary-label">Current bid</span>
+                        <strong>{highestBidCount}</strong>
+                        <p>{highestBidPlayerName ?? "Someone"} says they can name {highestBidCount}.</p>
+                      </div>
+                    ) : (
+                      <div className="sketch-bid-main empty">
+                        <span className="sketch-summary-label">No bid yet</span>
+                        <p>{shownCategoryName ? "Set the first number." : "Choose a category to start the bidding."}</p>
+                      </div>
+                    )}
+
+                    {canBid ? (
+                      <p className="sketch-bid-hint">Raise to at least {minimumBidCount}, or call the bluff.</p>
+                    ) : null}
                   </div>
 
                   {isRoundStartPending ? (
@@ -1523,18 +1721,27 @@ function GameLobbyPage() {
                   ) : (
                     <>
                       {(canBid || canSetOpeningBid) ? (
-                        <div className="sketch-input-block">
-                          <label className="sketch-field-label" htmlFor="bid-input">Bid</label>
+                        <div className="sketch-bid-control">
+                          <label className="sketch-field-label" htmlFor="bid-input">{canChooseCategory ? "Opening bid" : "Raise bid"}</label>
                           <input
                             id="bid-input"
                             className="sketch-word-input"
                             type="number"
-                            min="1"
-                            placeholder={canChooseCategory ? "Opening bid" : highestBidCount ? `More than ${highestBidCount}` : "Enter bid"}
+                            min={minimumBidCount}
+                            placeholder={canChooseCategory ? "Opening bid" : `At least ${minimumBidCount}`}
                             value={currentBidCount}
                             onChange={(e) => setCurrentBidCount(e.target.value)}
                             disabled={(!canBid && !canSetOpeningBid) || isSubmittingBid}
                           />
+                          {canBid ? (
+                            <div className="sketch-quick-bids" aria-label="Quick bid options">
+                              {quickBidOptions.map((value) => (
+                                <button type="button" key={value} onClick={() => setCurrentBidCount(String(value))}>
+                                  {value}
+                                </button>
+                              ))}
+                            </div>
+                          ) : null}
                         </div>
                       ) : null}
 
@@ -1577,14 +1784,14 @@ function GameLobbyPage() {
 
                               void submitBid();
                             }}
-                            disabled={(!canBid && !canSetOpeningBid) || isSubmittingBid}
+                            disabled={(!canBid && !canSetOpeningBid) || isSubmittingBid || (canBid && !hasValidBidCount)}
                           >
                             {isSubmittingBid ? "Saving..." : canChooseCategory ? "Start round" : "Raise bid"}
                           </button>
                         ) : null}
                         {canChallenge ? (
-                          <button className="primary sketch-secondary-action" type="button" onClick={() => void callBluff()} disabled={isCallingBluff}>
-                            {isCallingBluff ? "Checking..." : "Bullshit"}
+                          <button className="primary sketch-secondary-action sketch-bluff-action" type="button" onClick={() => void callBluff()} disabled={isCallingBluff}>
+                            {isCallingBluff ? "Checking..." : "Call bluff"}
                           </button>
                         ) : null}
                       </div>
@@ -1597,12 +1804,9 @@ function GameLobbyPage() {
                     {submittedWords.length > 0 && <p className="sketch-feedback-text">Accepted: {submittedWords.join(", ")}</p>}
                     {canSubmitWords ? <p className="sketch-feedback-text">Words left: {wordsLeftToType}</p> : null}
                     {submissionError && <p className="sketch-feedback-text is-error">{submissionError}</p>}
-                    {submissionSummary && (
-                      <p className="sketch-feedback-text">
-                        {submissionSummary.succeeded ? "Challenge succeeded." : "Challenge failed."} Awarded points: {submissionSummary.awardedPoints}
-                      </p>
-                    )}
                   </div>
+                  </>
+                  )}
                 </div>
 
                 {shouldShowAnswerPanel ? (
@@ -1719,57 +1923,6 @@ function GameLobbyPage() {
         </div>
       )}
 
-      {canSubmitWords && (
-        <div className="modal-backdrop">
-          <div className="modal-card sketch-challenge-modal" onClick={(e) => e.stopPropagation()}>
-            <p className="sketch-challenge-eyebrow">Your challenge</p>
-            <h2 className="title modal-title sketch-challenge-title">
-              You need to type {highestBidCount ?? 0} words
-            </h2>
-
-            <div className="sketch-challenge-stats">
-              {countdownSeconds !== null ? (
-                <div className="sketch-challenge-stat">
-                  <span>Time left</span>
-                  <strong>{countdownSeconds}s</strong>
-                </div>
-              ) : null}
-              <div className="sketch-challenge-stat">
-                <span>Words left</span>
-                <strong>{wordsLeftToType}</strong>
-              </div>
-              <div className="sketch-challenge-stat">
-                <span>Category</span>
-                <strong>{shownCategoryName ?? "Unknown"}</strong>
-              </div>
-            </div>
-
-            <div className="sketch-input-block">
-              <label className="sketch-field-label" htmlFor="word-input">Type a word</label>
-              <input
-                id="word-input"
-                className="sketch-word-input"
-                type="text"
-                placeholder="Type a word and press Enter"
-                value={currentWord}
-                onChange={(e) => setCurrentWord(e.target.value)}
-                onKeyDown={handleKeyDown}
-                disabled={!canSubmitWords}
-                autoFocus
-              />
-            </div>
-
-            {submittedWords.length > 0 ? (
-              <div className="sketch-challenge-progress">
-                <span className="sketch-summary-label">Accepted words</span>
-                <p className="sketch-feedback-text">{submittedWords.join(", ")}</p>
-              </div>
-            ) : null}
-
-            {submissionError ? <p className="sketch-feedback-text is-error">{submissionError}</p> : null}
-          </div>
-        </div>
-      )}
     </main>
   );
 }
