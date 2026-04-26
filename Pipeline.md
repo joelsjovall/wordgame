@@ -8,7 +8,7 @@ Our project uses a GitHub Actions–based CI/CD pipeline to ensure code quality,
 What the pipeline does -
 The pipeline consists of several stages:
 
-- Frontend Linting
+Frontend Linting
 Runs ESLint with strict React rules.
 This step catches:
 
@@ -19,7 +19,7 @@ This step catches:
 
 If linting fails, the pipeline stops immediately.
 
-- Frontend Build
+Frontend Build
 Installs dependencies and builds the Vite/React frontend.
 This ensures:
 
@@ -27,7 +27,7 @@ This ensures:
 - No missing imports or type errors
 - The production build can be generated successfully
 
-- Backend Build
+Backend Build
 Builds the .NET backend.
 This verifies:
 
@@ -35,7 +35,7 @@ This verifies:
 - No missing references
 - The API structure is valid
 
-- Automated API Tests
+Automated API Tests
 Runs our API test suite to verify:
 
 - Game creation
@@ -46,11 +46,11 @@ Runs our API test suite to verify:
 
 If any endpoint behaves unexpectedly, the pipeline fails.
 
-- Postman Tests
+Postman Tests
 Executes Postman collections for end‑to‑end validation.
 These tests simulate real gameplay flows and ensure the system behaves correctly from a user perspective.
 
-- Artifacts (Optional)
+Artifacts (Optional)
 The pipeline can upload build artifacts such as:
 
 - Frontend dist/ output
@@ -58,7 +58,7 @@ The pipeline can upload build artifacts such as:
 
 This makes it easy to inspect builds directly from GitHub Actions.
 
-- Why the pipeline matters
+Why the pipeline matters
 Our CI/CD pipeline ensures that:
 
 - The main branch is always stable
