@@ -210,6 +210,8 @@ function GameLobbyPage() {
   const location = useLocation();
   const queryParams = new URLSearchParams(location.search);
   const isPreviewMode = queryParams.get("preview") === "1";
+  const previewState = queryParams.get("previewState") || queryParams.get("state") || "";
+  const isPreviewWritingWords = isPreviewMode && ["write", "writing", "challenge", "challenge_active"].includes(previewState);
 
   const sessionCode = queryParams.get("code") || (isPreviewMode ? "121" : "");
   const username = queryParams.get("user") || (isPreviewMode ? "joellll111" : "");
@@ -238,8 +240,26 @@ function GameLobbyPage() {
   const [isMarkingReady, setIsMarkingReady] = useState(false);
   const [submissionError, setSubmissionError] = useState("");
   const [submissionSummary, setSubmissionSummary] = useState<RoundSubmissionResponse | null>(null);
-  const [roundResults, setRoundResults] = useState<RoundResultsResponse | null>(isPreviewMode ? previewRoundResults : null);
-  const [gameState, setGameState] = useState<GameStateResponse | null>(isPreviewMode ? previewGameState : null);
+  const [roundResults, setRoundResults] = useState<RoundResultsResponse | null>(isPreviewMode
+    ? {
+      ...previewRoundResults,
+      status: isPreviewWritingWords ? "challenge_active" : previewRoundResults.status,
+      currentPlayerId: isPreviewWritingWords ? 1 : previewRoundResults.currentPlayerId,
+      currentPlayerName: isPreviewWritingWords ? "joellll111" : previewRoundResults.currentPlayerName,
+      deadlineUtc: isPreviewWritingWords ? new Date(Date.now() + 44000).toISOString() : previewRoundResults.deadlineUtc,
+      secondsRemaining: isPreviewWritingWords ? 44 : previewRoundResults.secondsRemaining,
+    }
+    : null);
+  const [gameState, setGameState] = useState<GameStateResponse | null>(isPreviewMode
+    ? {
+      ...previewGameState,
+      phase: isPreviewWritingWords ? "challenge_active" : previewGameState.phase,
+      activePlayerId: isPreviewWritingWords ? 1 : previewGameState.activePlayerId,
+      activePlayerName: isPreviewWritingWords ? "joellll111" : previewGameState.activePlayerName,
+      deadlineUtc: isPreviewWritingWords ? new Date(Date.now() + 44000).toISOString() : previewGameState.deadlineUtc,
+      secondsRemaining: isPreviewWritingWords ? 44 : previewGameState.secondsRemaining,
+    }
+    : null);
   const [liveDrafts, setLiveDrafts] = useState<LiveRoundDraft[]>(isPreviewMode ? previewLiveDrafts : []);
   const [countdownSeconds, setCountdownSeconds] = useState<number | null>(isPreviewMode ? previewGameState.secondsRemaining : null);
   const [resolvedRoundId, setResolvedRoundId] = useState(
