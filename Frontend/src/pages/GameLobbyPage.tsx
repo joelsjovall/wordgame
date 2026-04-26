@@ -136,41 +136,132 @@ const difficultyOptions: { key: "easy" | "medium" | "hard"; label: string; point
   { key: "hard", label: "Hard", points: 3 },
 ];
 
+const previewPlayers: Player[] = [
+  { id: 1, username: "joellll111", score: 12, playerOrder: 1, isReady: false },
+  { id: 2, username: "Maja", score: 9, playerOrder: 2, isReady: true },
+  { id: 3, username: "Alex", score: 7, playerOrder: 3, isReady: false },
+  { id: 4, username: "Sam", score: 5, playerOrder: 4, isReady: false },
+];
+
+const previewCategories: Category[] = [
+  { id: 11, name: "European capitals", difficulty: "easy", points: 1 },
+  { id: 12, name: "Active car brands", difficulty: "medium", points: 2 },
+  { id: 13, name: "World Cup 2026 teams", difficulty: "hard", points: 3 },
+];
+
+const previewGameState: GameStateResponse = {
+  gameId: 121,
+  currentRoundId: 77,
+  roundNumber: 3,
+  phase: "category_selection",
+  activePlayerId: 1,
+  activePlayerName: "joellll111",
+  categoryId: 12,
+  categoryName: "Active car brands",
+  highestBidCount: 4,
+  highestBidPlayerId: 2,
+  highestBidPlayerName: "Maja",
+  deadlineUtc: null,
+  secondsRemaining: 44,
+  readyPlayerIds: [2],
+  readyPlayersCount: 1,
+  totalPlayers: 4,
+  allPlayersReady: false,
+};
+
+const previewRoundResults: RoundResultsResponse = {
+  roundId: 77,
+  gameId: 121,
+  roundNumber: 3,
+  status: "category_selection",
+  currentPlayerId: 1,
+  currentPlayerName: "joellll111",
+  deadlineUtc: null,
+  secondsRemaining: 44,
+  highestBidCount: 4,
+  highestBidPlayerId: 2,
+  highestBidPlayerName: "Maja",
+  category: {
+    categoryId: 12,
+    categoryName: "Active car brands",
+    pointsPerWord: 2,
+  },
+  players: previewPlayers.map((player) => ({
+    userId: Number(player.id),
+    username: player.username,
+    score: player.score ?? 0,
+    turnOrder: player.playerOrder ?? 0,
+  })),
+  challenges: [],
+};
+
+const previewLiveDrafts: LiveRoundDraft[] = [
+  { playerId: 1, username: "joellll111", currentInput: "mer", words: ["Volvo", "BMW"] },
+  { playerId: 2, username: "Maja", currentInput: "", words: ["Saab"] },
+  { playerId: 3, username: "Alex", currentInput: "Aud", words: [] },
+];
+
+const previewResults: LocalResult[] = [
+  { word: "Volvo", correct: true, submittedBy: "joellll111" },
+  { word: "Ferrari", correct: false, submittedBy: "Maja" },
+];
+
 function GameLobbyPage() {
   const location = useLocation();
   const queryParams = new URLSearchParams(location.search);
+  const isPreviewMode = queryParams.get("preview") === "1";
+  const previewState = queryParams.get("previewState") || queryParams.get("state") || "";
+  const isPreviewWritingWords = isPreviewMode && ["write", "writing", "challenge", "challenge_active"].includes(previewState);
 
-  const sessionCode = queryParams.get("code") || "";
-  const username = queryParams.get("user") || "";
-  const roundIdFromQuery = Number(queryParams.get("roundId") || queryParams.get("roundid") || "");
-  const gameIdFromQuery = Number(queryParams.get("gameId") || queryParams.get("gameid") || "");
-  const playerIdFromQuery = Number(queryParams.get("playerId") || "");
+  const sessionCode = queryParams.get("code") || (isPreviewMode ? "121" : "");
+  const username = queryParams.get("user") || (isPreviewMode ? "joellll111" : "");
+  const roundIdFromQuery = Number(queryParams.get("roundId") || queryParams.get("roundid") || (isPreviewMode ? "77" : ""));
+  const gameIdFromQuery = Number(queryParams.get("gameId") || queryParams.get("gameid") || (isPreviewMode ? "121" : ""));
+  const playerIdFromQuery = Number(queryParams.get("playerId") || (isPreviewMode ? "1" : ""));
   const fallbackGameIdFromCode = Number(sessionCode || "");
   const resolvedGameId = Number.isFinite(gameIdFromQuery) && gameIdFromQuery > 0
     ? gameIdFromQuery
     : (Number.isFinite(fallbackGameIdFromCode) && fallbackGameIdFromCode > 0 ? fallbackGameIdFromCode : 0);
 
-  const [players, setPlayers] = useState<Player[]>([]);
-  const [categories, setCategories] = useState<Category[]>([]);
+  const [players, setPlayers] = useState<Player[]>(isPreviewMode ? previewPlayers : []);
+  const [categories, setCategories] = useState<Category[]>(isPreviewMode ? previewCategories : []);
   const [selectedCategory, setSelectedCategory] = useState("");
   const [selectedDifficulty, setSelectedDifficulty] = useState<"easy" | "medium" | "hard" | "">("");
   const [selectedCategoryName, setSelectedCategoryName] = useState("");
-  const [isCategoryModalOpen, setIsCategoryModalOpen] = useState(false);
+  const [isCategoryModalOpen, setIsCategoryModalOpen] = useState(isPreviewMode);
   const [isCategoriesLoading, setIsCategoriesLoading] = useState(false);
   const [categoriesError, setCategoriesError] = useState("");
   const [currentWord, setCurrentWord] = useState("");
   const [currentBidCount, setCurrentBidCount] = useState("");
-  const [results, setResults] = useState<LocalResult[]>([]);
+  const [results, setResults] = useState<LocalResult[]>(isPreviewMode ? previewResults : []);
   const [submittedWords, setSubmittedWords] = useState<string[]>([]);
   const [isSubmittingBid, setIsSubmittingBid] = useState(false);
   const [isCallingBluff, setIsCallingBluff] = useState(false);
   const [isMarkingReady, setIsMarkingReady] = useState(false);
   const [submissionError, setSubmissionError] = useState("");
   const [submissionSummary, setSubmissionSummary] = useState<RoundSubmissionResponse | null>(null);
-  const [roundResults, setRoundResults] = useState<RoundResultsResponse | null>(null);
-  const [gameState, setGameState] = useState<GameStateResponse | null>(null);
-  const [liveDrafts, setLiveDrafts] = useState<LiveRoundDraft[]>([]);
-  const [countdownSeconds, setCountdownSeconds] = useState<number | null>(null);
+  const [roundResults, setRoundResults] = useState<RoundResultsResponse | null>(isPreviewMode
+    ? {
+      ...previewRoundResults,
+      status: isPreviewWritingWords ? "challenge_active" : previewRoundResults.status,
+      currentPlayerId: isPreviewWritingWords ? 1 : previewRoundResults.currentPlayerId,
+      currentPlayerName: isPreviewWritingWords ? "joellll111" : previewRoundResults.currentPlayerName,
+      deadlineUtc: previewRoundResults.deadlineUtc,
+      secondsRemaining: isPreviewWritingWords ? 44 : previewRoundResults.secondsRemaining,
+    }
+    : null);
+  const [gameState, setGameState] = useState<GameStateResponse | null>(isPreviewMode
+    ? {
+      ...previewGameState,
+      phase: isPreviewWritingWords ? "challenge_active" : previewGameState.phase,
+      activePlayerId: isPreviewWritingWords ? 1 : previewGameState.activePlayerId,
+      activePlayerName: isPreviewWritingWords ? "joellll111" : previewGameState.activePlayerName,
+      deadlineUtc: previewGameState.deadlineUtc,
+      secondsRemaining: isPreviewWritingWords ? 44 : previewGameState.secondsRemaining,
+    }
+    : null);
+  const [liveDrafts, setLiveDrafts] = useState<LiveRoundDraft[]>(isPreviewMode ? previewLiveDrafts : []);
+  const [countdownSeconds, setCountdownSeconds] = useState<number | null>(isPreviewMode ? previewGameState.secondsRemaining : null);
   const [resolvedRoundId, setResolvedRoundId] = useState(
     Number.isFinite(roundIdFromQuery) && roundIdFromQuery > 0 ? roundIdFromQuery : 0
   );
@@ -348,6 +439,10 @@ function GameLobbyPage() {
     }
   };
   useEffect(() => {
+    if (isPreviewMode) {
+      return;
+    }
+
     if (!Number.isFinite(resolvedGameId) || resolvedGameId <= 0) {
       return;
     }
@@ -475,7 +570,7 @@ function GameLobbyPage() {
       isMounted = false;
       window.clearInterval(intervalId);
     };
-  }, [resolvedGameId, resolvedRoundId]);
+  }, [isPreviewMode, resolvedGameId, resolvedRoundId]);
 
   const hasActiveCountdown = countdownSeconds !== null;
 
@@ -524,6 +619,10 @@ function GameLobbyPage() {
   }, [gameState?.phase]);
 
   useEffect(() => {
+    if (isPreviewMode) {
+      return;
+    }
+
     if (!Number.isFinite(resolvedRoundId) || resolvedRoundId <= 0 || resolvedPlayerId <= 0) {
       return;
     }
@@ -556,7 +655,7 @@ function GameLobbyPage() {
     return () => {
       window.clearTimeout(timeoutId);
     };
-  }, [currentWord, liveDrafts, resolvedPlayerId, resolvedRoundId, submittedWords]);
+  }, [currentWord, isPreviewMode, liveDrafts, resolvedPlayerId, resolvedRoundId, submittedWords]);
 
   const fetchCategoriesByDifficulty = async (difficulty: "easy" | "medium" | "hard") => {
     setSelectedDifficulty(difficulty);
@@ -564,6 +663,12 @@ function GameLobbyPage() {
     setSelectedCategoryName("");
     setCategoriesError("");
     setIsCategoriesLoading(true);
+
+    if (isPreviewMode) {
+      setCategories(previewCategories.filter((category) => category.difficulty === difficulty));
+      setIsCategoriesLoading(false);
+      return;
+    }
 
     try {
       const response = await fetch(`${API_BASE_URL}/api/categories?difficulty=${encodeURIComponent(difficulty)}`);
@@ -587,6 +692,49 @@ function GameLobbyPage() {
   };
 
   const startRoundForCategory = async (categoryId: number, bidCount: number) => {
+    if (isPreviewMode) {
+      const matchedCategory = categories.find((category) => category.id === categoryId) ?? previewCategories.find((category) => category.id === categoryId) ?? null;
+      const nextPlayerId = getNextPlayerId(resolvedPlayerId);
+
+      setSelectedCategory(String(categoryId));
+      setSelectedCategoryName(matchedCategory?.name ?? "");
+      setCurrentBidCount("");
+      setIsCategoryModalOpen(false);
+      setSubmissionError("");
+      setGameState((previousState) => previousState
+        ? {
+          ...previousState,
+          phase: "bidding",
+          categoryId,
+          categoryName: matchedCategory?.name ?? previousState.categoryName,
+          highestBidCount: bidCount,
+          highestBidPlayerId: resolvedPlayerId,
+          highestBidPlayerName: username,
+          activePlayerId: nextPlayerId,
+          activePlayerName: getPlayerName(nextPlayerId),
+          secondsRemaining: 32,
+        }
+        : previousState);
+      setRoundResults((previousResults) => previousResults
+        ? {
+          ...previousResults,
+          status: "bidding",
+          currentPlayerId: nextPlayerId,
+          currentPlayerName: getPlayerName(nextPlayerId),
+          highestBidCount: bidCount,
+          highestBidPlayerId: resolvedPlayerId,
+          highestBidPlayerName: username,
+          category: {
+            categoryId,
+            categoryName: matchedCategory?.name ?? previousResults.category.categoryName,
+            pointsPerWord: matchedCategory?.points ?? previousResults.category.pointsPerWord,
+          },
+        }
+        : previousResults);
+      setCountdownSeconds(32);
+      return;
+    }
+
     if (!Number.isFinite(resolvedGameId) || resolvedGameId <= 0) {
       throw new Error("Missing gameId. Add gameId in the lobby URL.");
     }
@@ -685,6 +833,23 @@ function GameLobbyPage() {
   const markPlayerReady = async () => {
     setSubmissionError("");
 
+    if (isPreviewMode) {
+      setPlayers((previousPlayers) => previousPlayers.map((player) =>
+        Number(player.id) === resolvedPlayerId
+          ? { ...player, isReady: true }
+          : player
+      ));
+      setGameState((previousState) => previousState
+        ? {
+          ...previousState,
+          phase: "category_selection",
+          readyPlayerIds: Array.from(new Set([...(previousState.readyPlayerIds ?? []), resolvedPlayerId])),
+          readyPlayersCount: Array.from(new Set([...(previousState.readyPlayerIds ?? []), resolvedPlayerId])).length,
+        }
+        : previousState);
+      return;
+    }
+
     if (!Number.isFinite(resolvedGameId) || resolvedGameId <= 0 || resolvedPlayerId <= 0) {
       setSubmissionError("Missing game or player information.");
       return;
@@ -720,6 +885,39 @@ function GameLobbyPage() {
   const submitWord = async () => {
     const trimmed = currentWord.trim();
     if (!trimmed) return;
+
+    if (isPreviewMode) {
+      const normalized = trimmed.toLowerCase();
+      const alreadySubmitted = submittedWords.some((word) => word.toLowerCase() === normalized);
+      const accepted = !alreadySubmitted && normalized.length > 2;
+
+      setCurrentWord("");
+      setResults((previousResults) => [
+        ...previousResults,
+        {
+          word: trimmed,
+          correct: accepted,
+          pending: false,
+          submittedBy: username,
+        },
+      ]);
+
+      if (accepted) {
+        setSubmittedWords((previousWords) => [...previousWords, trimmed]);
+        setLiveDrafts((previousDrafts) => previousDrafts.map((draft) =>
+          draft.playerId === resolvedPlayerId
+            ? {
+              ...draft,
+              currentInput: "",
+              words: [...draft.words, trimmed],
+            }
+            : draft
+        ));
+      }
+
+      setSubmissionError(accepted ? "" : "Preview mode marked this word as invalid or duplicate.");
+      return;
+    }
 
     if (!Number.isFinite(resolvedRoundId) || resolvedRoundId <= 0) {
       setSubmissionError("Missing roundId and no active round could be resolved.");
@@ -874,6 +1072,42 @@ function GameLobbyPage() {
   const submitBid = async () => {
     setSubmissionError("");
 
+    if (isPreviewMode) {
+      const bidCount = Number(currentBidCount);
+      if (!Number.isFinite(bidCount) || bidCount <= 0) {
+        setSubmissionError("Enter a valid number before placing a bid.");
+        return;
+      }
+
+      const nextPlayerId = getNextPlayerId(resolvedPlayerId);
+      setCurrentBidCount("");
+      setGameState((previousState) => previousState
+        ? {
+          ...previousState,
+          phase: "bidding",
+          highestBidCount: bidCount,
+          highestBidPlayerId: resolvedPlayerId,
+          highestBidPlayerName: username,
+          activePlayerId: nextPlayerId,
+          activePlayerName: getPlayerName(nextPlayerId),
+          secondsRemaining: 22,
+        }
+        : previousState);
+      setRoundResults((previousResults) => previousResults
+        ? {
+          ...previousResults,
+          status: "bidding",
+          highestBidCount: bidCount,
+          highestBidPlayerId: resolvedPlayerId,
+          highestBidPlayerName: username,
+          currentPlayerId: nextPlayerId,
+          currentPlayerName: getPlayerName(nextPlayerId),
+        }
+        : previousResults);
+      setCountdownSeconds(22);
+      return;
+    }
+
     if (!Number.isFinite(resolvedRoundId) || resolvedRoundId <= 0) {
       setSubmissionError("There is no active round to bid in.");
       return;
@@ -948,6 +1182,28 @@ function GameLobbyPage() {
 
   const callBluff = async () => {
     setSubmissionError("");
+
+    if (isPreviewMode) {
+      setGameState((previousState) => previousState
+        ? {
+          ...previousState,
+          phase: "challenge_active",
+          activePlayerId: highestBidPlayerId,
+          activePlayerName: highestBidPlayerName,
+          secondsRemaining: 60,
+        }
+        : previousState);
+      setRoundResults((previousResults) => previousResults
+        ? {
+          ...previousResults,
+          status: "challenge_active",
+          currentPlayerId: highestBidPlayerId,
+          currentPlayerName: highestBidPlayerName,
+        }
+        : previousResults);
+      setCountdownSeconds(60);
+      return;
+    }
 
     if (!Number.isFinite(resolvedRoundId) || resolvedRoundId <= 0 || !syncedRoundResults) {
       setSubmissionError("There is no bid to challenge.");
@@ -1098,8 +1354,30 @@ function GameLobbyPage() {
   const canChallenge = canBid && !!highestBidCount && highestBidPlayerId !== resolvedPlayerId;
   const canSubmitWords = roundStatus === "challenge_active" && isMyTurn;
   const canSetOpeningBid = canChooseCategory && !!selectedCategory;
+  const primaryActionLabel = canChooseCategory
+    ? "Choose category"
+    : isRoundStartPending
+      ? "Start round"
+      : canSubmitWords
+        ? "Write words"
+        : canBid
+          ? "Make your move"
+          : "Watch the round";
 
   const wordsLeftToType = Math.max(0, (highestBidCount ?? 0) - submittedWords.length);
+  const currentPlayerCard = topPlayers.find((player) => Number(player.id) === activePlayerId) ?? null;
+  const activeTurnName = currentPlayerCard?.username ?? currentTurnPlayerName ?? "Waiting...";
+  const stageInstruction = canChooseCategory
+    ? (isMyTurn ? "Step 1: Choose a category. Step 2: Set your bid." : `${activeTurnName} is choosing a category and opening bid.`)
+    : canSubmitWords
+      ? (isMyTurn ? "It's your turn to write words." : `It's ${activeTurnName}'s turn to write words.`)
+      : canBid
+        ? "It's your turn to bid or challenge."
+        : roundStatus === "bidding"
+          ? `It's ${activeTurnName}'s turn to bid or challenge.`
+          : isRoundStartPending
+            ? (isMyTurn ? "It's your turn to get ready for the next round." : `Waiting for ${activeTurnName} to get ready.`)
+            : `It's ${activeTurnName}'s turn.`;
   const roundMessage = isRoundStartPending
     ? (amIReady
       ? `Waiting for everyone to click Starta rundan (${gameState?.readyPlayersCount ?? 0}/${gameState?.totalPlayers ?? players.length}).`
@@ -1117,15 +1395,6 @@ function GameLobbyPage() {
           : syncedRoundResults?.status === "completed"
             ? `${currentTurnPlayerName ?? "Next player"} starts the next round.`
             : "Waiting for the first round to start.";
-  const timerLabel = currentPhase === "category_selection"
-    ? "Time to choose category and opening bid"
-    : currentPhase === "round_start_pending"
-      ? "Waiting for players"
-      : roundStatus === "bidding"
-        ? "Time to answer the bid"
-        : roundStatus === "challenge_active"
-          ? "Time to write words"
-          : "Time";
   const liveDraftCards = topPlayers.map((player, index) => {
     const playerId = Number(player.id);
     const liveDraft = liveDraftsByPlayerId.get(playerId);
@@ -1138,192 +1407,262 @@ function GameLobbyPage() {
       isYou: playerId > 0 && playerId === resolvedPlayerId,
     };
   });
+  const shownRoundNumber = gameState?.roundNumber ?? roundResults?.roundNumber ?? 0;
+  const currentAnswerCards = results
+    .filter((result) => !result.pending)
+    .filter((result) => {
+      if (!result.submittedBy) {
+        return isMyTurn;
+      }
+
+      return result.submittedBy.toLowerCase() === activeTurnName.toLowerCase();
+    })
+    .slice(-6);
+  const shouldShowAnswerPanel = !canChooseCategory && currentAnswerCards.length > 0;
+  const shouldShowDetailPanels = !canChooseCategory && !isRoundStartPending;
 
   return (
     <main className="page">
       <section className="card sketch-lobby-card">
         <div className="sketch-lobby-top">
-          <div className="sketch-room-code">Your lobbycode: {sessionCode || "XXXX-XXXX"}</div>
+          <div className="sketch-meta-strip">
+            <div className="sketch-meta-pill">Lobby {sessionCode || "XXXX-XXXX"}</div>
+            <div className="sketch-meta-pill">Round {gameState?.roundNumber ?? roundResults?.roundNumber ?? 0}</div>
+            {countdownSeconds !== null ? <div className="sketch-meta-pill">{countdownSeconds}s left</div> : null}
+            {isMyTurn ? <div className="sketch-meta-pill sketch-meta-pill-active">Your turn</div> : null}
+            {!isMyTurn && currentTurnPlayerName ? <div className="sketch-meta-pill">{currentTurnPlayerName}</div> : null}
+          </div>
           <Link className="rules-link sketch-back-link" to="/">
             Back
           </Link>
         </div>
 
         <div className="sketch-player-row">
-          {topPlayers.map((player, index) => (
+          {topPlayers.map((player, index) => {
+            const playerId = Number(player.id);
+            const isActivePlayer = playerId === activePlayerId;
+            const isCurrentUser = playerId === resolvedPlayerId;
+            const playerStatus = isActivePlayer
+              ? "playing"
+              : readyPlayerIds.has(playerId)
+                ? "ready"
+                : isCurrentUser
+                  ? "you"
+                  : "waiting";
+            const playerStatusLabel = isActivePlayer
+              ? (countdownSeconds !== null ? `Playing now - ${countdownSeconds}s` : "Playing now")
+              : playerStatus === "ready"
+                ? "Ready"
+                : playerStatus === "you"
+                  ? "You"
+                  : "Waiting";
+
+            return (
             <article
-              className={`sketch-player-slot${Number(player.id) === activePlayerId ? " active-turn" : ""}${Number(player.id) === resolvedPlayerId ? " current-user" : ""}`}
+              className={`sketch-player-slot status-${playerStatus}${isActivePlayer ? " active-turn" : ""}${isCurrentUser ? " current-user" : ""}`}
               key={player.id ?? index}
             >
-              <h2 className="sketch-player-label">{player.username || `Player ${index + 1}`}</h2>
-              <div className="sketch-player-score-box">
-                <span>{player.score ?? 0}p</span>
+              <div className="sketch-player-head">
+                <h2 className="sketch-player-label">{player.username || `Player ${index + 1}`}</h2>
+                <span className="sketch-player-score">{player.score ?? 0}p</span>
               </div>
-              <p className="sketch-player-status">
-                {Number(player.id) === activePlayerId
-                  ? "Current turn"
-                  : readyPlayerIds.has(Number(player.id))
-                    ? "Ready"
-                    : Number(player.id) === resolvedPlayerId
-                      ? "You"
-                      : `Player ${player.playerOrder ?? index + 1}`}
-              </p>
+              <div className="sketch-player-avatar" aria-hidden="true">
+                <span className="sketch-player-avatar-eye left" />
+                <span className="sketch-player-avatar-eye right" />
+                <span className="sketch-player-avatar-mouth" />
+                <span className="sketch-player-avatar-trait" />
+              </div>
+              <div className="sketch-score-meter" aria-hidden="true">
+                <span style={{ width: `${Math.min(100, Math.max(8, (player.score ?? 0) * 8))}%` }} />
+              </div>
+              <p className="sketch-player-status">{playerStatusLabel}</p>
             </article>
-          ))}
+            );
+          })}
         </div>
 
         <div className="sketch-lobby-body">
-          <aside className="sketch-history-column">
-            <h3 className="sketch-history-title">Word guesses history</h3>
-            <ul className="sketch-history-list">
-              {results.length ? (
-                results.map((result, index) => (
-                  <li
-                    className={result.pending ? "sketch-history-item" : result.correct ? "sketch-history-item correct" : "sketch-history-item incorrect"}
-                    key={`${result.word}-${result.createdAt ?? index}-${index}`}
-                  >
-                    <span>{result.submittedBy ? `${result.submittedBy}: ${result.word}` : result.word}</span>
-                    <span>{result.pending ? "Checking..." : result.correct ? "Correct" : "Incorrect"}</span>
-                  </li>
-                ))
-              ) : (
-                <li className="sketch-history-empty">No guesses yet</li>
-              )}
-            </ul>
-          </aside>
-
           <section className="sketch-main-column">
-            <div className="sketch-category-block">
-              <div className="sketch-round-banner">
-                <p>Round: {gameState?.roundNumber ?? roundResults?.roundNumber ?? 0}</p>
-                <p>Status: {currentPhase}</p>
-                {countdownSeconds !== null ? <p>{timerLabel}: {countdownSeconds}s</p> : null}
+            <section className="sketch-stage-card">
+              <div className="sketch-stage-header">
+                <div>
+                  <p className="sketch-stage-kicker">{primaryActionLabel}</p>
+                  <h2 className="sketch-stage-title">
+                    {stageInstruction}
+                  </h2>
+                </div>
+                <div className="sketch-stage-turn">
+                  <span className="sketch-focus-chip">Round {shownRoundNumber}</span>
+                  <strong>{activeTurnName}</strong>
+                </div>
               </div>
               <p className="sketch-turn-status">{roundMessage}</p>
-              {isRoundStartPending ? (
-                <button className="primary" type="button" onClick={() => void markPlayerReady()} disabled={amIReady || isMarkingReady}>
-                  {isMarkingReady ? "Starting..." : amIReady ? "Ready" : "Starta rundan"}
-                </button>
-              ) : null}
-              <p className="sketch-category-line">
-                Category: <span>{shownCategoryName ?? "Category_name"}</span>
-              </p>
-              <button
-                className="primary"
-                type="button"
-                onClick={() => setIsCategoryModalOpen(true)}
-                disabled={!canChooseCategory}
-              >
-                Choose category
-              </button>
-              {selectedDifficulty && <p className="sketch-difficulty">Difficulty: {selectedDifficulty}</p>}
-              {canChooseCategory && selectedCategoryName ? (
-                <p className="sketch-lobby-message">Selected category: {selectedCategoryName}</p>
-              ) : null}
-              {highestBidCount ? (
-                <p className="sketch-lobby-message">
-                  Highest bid: {highestBidCount} by {highestBidPlayerName ?? "Unknown player"}
-                </p>
-              ) : null}
-            </div>
+              <div className={`sketch-stage-grid${shouldShowAnswerPanel ? "" : " is-focused"}`}>
+                <div className="sketch-stage-main">
+                  <div className="sketch-summary-card">
+                    <span className="sketch-summary-label">Current bid</span>
+                    <p className="sketch-summary-sentence">
+                      {highestBidCount
+                        ? `${highestBidPlayerName ?? "Someone"} has bid that they can name ${highestBidCount} ${shownCategoryName ?? "words"}.`
+                        : shownCategoryName
+                          ? `No one has placed a bid for ${shownCategoryName} yet.`
+                          : "Choose a category to start the bidding."}
+                    </p>
+                  </div>
 
-            <div className="sketch-word-block">
-              <label className="sketch-word-label" htmlFor="bid-input">
-                Bid count
-              </label>
-              <input
-                id="bid-input"
-                className="sketch-word-input"
-                type="number"
-                min="1"
-                placeholder={canChooseCategory ? "Set opening bid" : highestBidCount ? `More than ${highestBidCount}` : "How many can you name?"}
-                value={currentBidCount}
-                onChange={(e) => setCurrentBidCount(e.target.value)}
-                disabled={(!canBid && !canSetOpeningBid) || isSubmittingBid}
-              />
-              <div className="sketch-action-row">
-                <button
-                  className="primary"
-                  type="button"
-                  onClick={() => {
-                    if (canChooseCategory) {
-                      const categoryId = Number(selectedCategory || "");
-                      const bidCount = Number(currentBidCount || "");
+                  {isRoundStartPending ? (
+                    <div className="sketch-stage-actions single">
+                      <button className="primary" type="button" onClick={() => void markPlayerReady()} disabled={amIReady || isMarkingReady}>
+                        {isMarkingReady ? "Starting..." : amIReady ? "Ready" : "Start round"}
+                      </button>
+                    </div>
+                  ) : (
+                    <>
+                      {(canBid || canSetOpeningBid) ? (
+                        <div className="sketch-input-block">
+                          <label className="sketch-field-label" htmlFor="bid-input">Bid</label>
+                          <input
+                            id="bid-input"
+                            className="sketch-word-input"
+                            type="number"
+                            min="1"
+                            placeholder={canChooseCategory ? "Opening bid" : highestBidCount ? `More than ${highestBidCount}` : "Enter bid"}
+                            value={currentBidCount}
+                            onChange={(e) => setCurrentBidCount(e.target.value)}
+                            disabled={(!canBid && !canSetOpeningBid) || isSubmittingBid}
+                          />
+                        </div>
+                      ) : null}
 
-                      if (!Number.isFinite(categoryId) || categoryId <= 0) {
-                        setSubmissionError("Choose a category first.");
-                        return;
-                      }
+                      <div className="sketch-stage-actions">
+                        {canChooseCategory ? (
+                          <button
+                            className="primary sketch-focus-action"
+                            type="button"
+                            onClick={() => setIsCategoryModalOpen(true)}
+                          >
+                            Choose category
+                          </button>
+                        ) : null}
+                        {(canBid || canSetOpeningBid) ? (
+                          <button
+                            className={canChooseCategory ? "primary sketch-secondary-action" : "primary"}
+                            type="button"
+                            onClick={() => {
+                              if (canChooseCategory) {
+                                const categoryId = Number(selectedCategory || "");
+                                const bidCount = Number(currentBidCount || "");
 
-                      if (!Number.isFinite(bidCount) || bidCount <= 0) {
-                        setSubmissionError("Write a valid opening bid first.");
-                        return;
-                      }
+                                if (!Number.isFinite(categoryId) || categoryId <= 0) {
+                                  setSubmissionError("Choose a category first.");
+                                  return;
+                                }
 
-                      void startRoundForCategory(categoryId, bidCount).catch((error: unknown) => {
-                        setSubmissionError(
-                          error instanceof Error ? error.message : "Could not start a round for this category."
-                        );
-                      });
-                      return;
-                    }
+                                if (!Number.isFinite(bidCount) || bidCount <= 0) {
+                                  setSubmissionError("Write a valid opening bid first.");
+                                  return;
+                                }
 
-                    void submitBid();
-                  }}
-                  disabled={(!canBid && !canSetOpeningBid) || isSubmittingBid}
-                >
-                  {isSubmittingBid ? "Saving bid..." : canChooseCategory ? "Start round" : highestBidCount ? "I can name more" : "Set opening bid"}
-                </button>
-                <button className="primary" type="button" onClick={() => void callBluff()} disabled={!canChallenge || isCallingBluff}>
-                  {isCallingBluff ? "Checking..." : "Bullshit"}
-                </button>
-              </div>
+                                void startRoundForCategory(categoryId, bidCount).catch((error: unknown) => {
+                                  setSubmissionError(
+                                    error instanceof Error ? error.message : "Could not start a round for this category."
+                                  );
+                                });
+                                return;
+                              }
 
-              <label className="sketch-word-label" htmlFor="word-input">
-                Write your words here :
-              </label>
-              <input
-                id="word-input"
-                className="sketch-word-input"
-                type="text"
-                placeholder="Type a word and press Enter"
-                value={currentWord}
-                onChange={(e) => setCurrentWord(e.target.value)}
-                onKeyDown={handleKeyDown}
-                disabled={!canSubmitWords}
-              />
-              {submittedWords.length > 0 && (
-                <p>
-                  Accepted words: {submittedWords.join(", ")}
-                </p>
-              )}
-              {canSubmitWords ? <p>Words left to type: {wordsLeftToType}</p> : null}
-              {submissionError && <p>{submissionError}</p>}
-              {submissionSummary && (
-                <p>
-                  {submissionSummary.succeeded ? "Challenge succeeded." : "Challenge failed."} Awarded points: {submissionSummary.awardedPoints}
-                </p>
-              )}
-            </div>
+                              void submitBid();
+                            }}
+                            disabled={(!canBid && !canSetOpeningBid) || isSubmittingBid}
+                          >
+                            {isSubmittingBid ? "Saving..." : canChooseCategory ? "Start round" : "Raise bid"}
+                          </button>
+                        ) : null}
+                        {canChallenge ? (
+                          <button className="primary sketch-secondary-action" type="button" onClick={() => void callBluff()} disabled={isCallingBluff}>
+                            {isCallingBluff ? "Checking..." : "Bullshit"}
+                          </button>
+                        ) : null}
+                      </div>
 
-            <div className="sketch-live-board">
-              <h3 className="sketch-live-title">Live answers</h3>
-              <div className="sketch-live-grid">
-                {liveDraftCards.map((draft) => (
-                  <article className="sketch-live-card" key={draft.id}>
-                    <p className="sketch-live-player">{draft.username}{draft.isYou ? " (you)" : ""}</p>
-                    {draft.words.length > 0 ? (
-                      <p className="sketch-live-words">{draft.words.join(", ")}</p>
-                    ) : (
-                      <p className="sketch-live-empty">No accepted words shared yet</p>
+                    </>
+                  )}
+
+                  <div className="sketch-feedback-row">
+                    {selectedDifficulty && <p className="sketch-feedback-text">Difficulty: {selectedDifficulty}</p>}
+                    {submittedWords.length > 0 && <p className="sketch-feedback-text">Accepted: {submittedWords.join(", ")}</p>}
+                    {canSubmitWords ? <p className="sketch-feedback-text">Words left: {wordsLeftToType}</p> : null}
+                    {submissionError && <p className="sketch-feedback-text is-error">{submissionError}</p>}
+                    {submissionSummary && (
+                      <p className="sketch-feedback-text">
+                        {submissionSummary.succeeded ? "Challenge succeeded." : "Challenge failed."} Awarded points: {submissionSummary.awardedPoints}
+                      </p>
                     )}
-                    {draft.currentInput.trim() ? (
-                      <p className="sketch-live-typing">Typing: {draft.currentInput}</p>
-                    ) : null}
-                  </article>
-                ))}
+                  </div>
+                </div>
+
+                {shouldShowAnswerPanel ? (
+                <aside className="sketch-side-panel">
+                  <div className="sketch-side-card">
+                    <h3 className="sketch-side-title">{activeTurnName}'s answers</h3>
+                    <ul className="sketch-answer-list">
+                      {currentAnswerCards.map((answer, index) => (
+                        <li
+                          className={`sketch-answer-item ${answer.correct ? "correct" : "incorrect"}`}
+                          key={`${answer.word}-${answer.createdAt ?? index}-${index}`}
+                        >
+                          <span>{answer.word}</span>
+                          <span>{answer.correct ? "Correct" : "Wrong"}</span>
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                </aside>
+                ) : null}
               </div>
+            </section>
+
+            {shouldShowDetailPanels ? (
+            <div className="sketch-detail-panels">
+              <details className="sketch-detail-card">
+                <summary className="sketch-detail-summary">Word history</summary>
+                <ul className="sketch-history-list">
+                  {results.length ? (
+                    results.map((result, index) => (
+                      <li
+                        className={result.pending ? "sketch-history-item" : result.correct ? "sketch-history-item correct" : "sketch-history-item incorrect"}
+                        key={`${result.word}-${result.createdAt ?? index}-${index}`}
+                      >
+                        <span>{result.submittedBy ? `${result.submittedBy}: ${result.word}` : result.word}</span>
+                        <span>{result.pending ? "Checking..." : result.correct ? "Correct" : "Incorrect"}</span>
+                      </li>
+                    ))
+                  ) : (
+                    <li className="sketch-history-empty">No guesses yet</li>
+                  )}
+                </ul>
+              </details>
+
+              <details className="sketch-detail-card">
+                <summary className="sketch-detail-summary">Live answers</summary>
+                <div className="sketch-live-grid">
+                  {liveDraftCards.map((draft) => (
+                    <article className="sketch-live-card" key={draft.id}>
+                      <p className="sketch-live-player">{draft.username}{draft.isYou ? " (you)" : ""}</p>
+                      {draft.words.length > 0 ? (
+                        <p className="sketch-live-words">{draft.words.join(", ")}</p>
+                      ) : (
+                        <p className="sketch-live-empty">No accepted words shared yet</p>
+                      )}
+                      {draft.currentInput.trim() ? (
+                        <p className="sketch-live-typing">Typing: {draft.currentInput}</p>
+                      ) : null}
+                    </article>
+                  ))}
+                </div>
+              </details>
             </div>
+            ) : null}
           </section>
         </div>
       </section>
@@ -1372,6 +1711,58 @@ function GameLobbyPage() {
                 </select>
               </>
             )}
+          </div>
+        </div>
+      )}
+
+      {canSubmitWords && (
+        <div className="modal-backdrop">
+          <div className="modal-card sketch-challenge-modal" onClick={(e) => e.stopPropagation()}>
+            <p className="sketch-challenge-eyebrow">Your challenge</p>
+            <h2 className="title modal-title sketch-challenge-title">
+              You need to type {highestBidCount ?? 0} words
+            </h2>
+
+            <div className="sketch-challenge-stats">
+              {countdownSeconds !== null ? (
+                <div className="sketch-challenge-stat">
+                  <span>Time left</span>
+                  <strong>{countdownSeconds}s</strong>
+                </div>
+              ) : null}
+              <div className="sketch-challenge-stat">
+                <span>Words left</span>
+                <strong>{wordsLeftToType}</strong>
+              </div>
+              <div className="sketch-challenge-stat">
+                <span>Category</span>
+                <strong>{shownCategoryName ?? "Unknown"}</strong>
+              </div>
+            </div>
+
+            <div className="sketch-input-block">
+              <label className="sketch-field-label" htmlFor="word-input">Type a word</label>
+              <input
+                id="word-input"
+                className="sketch-word-input"
+                type="text"
+                placeholder="Type a word and press Enter"
+                value={currentWord}
+                onChange={(e) => setCurrentWord(e.target.value)}
+                onKeyDown={handleKeyDown}
+                disabled={!canSubmitWords}
+                autoFocus
+              />
+            </div>
+
+            {submittedWords.length > 0 ? (
+              <div className="sketch-challenge-progress">
+                <span className="sketch-summary-label">Accepted words</span>
+                <p className="sketch-feedback-text">{submittedWords.join(", ")}</p>
+              </div>
+            ) : null}
+
+            {submissionError ? <p className="sketch-feedback-text is-error">{submissionError}</p> : null}
           </div>
         </div>
       )}
