@@ -611,6 +611,261 @@
   box-shadow: none;
 }
 
+.lobby-page {
+  align-items: flex-start;
+  padding: 10px 14px;
+}
+
+@media (min-width: 900px) {
+  .lobby-page {
+    align-items: flex-start;
+    padding: 10px 14px;
+    overflow: hidden;
+  }
+
+  .sketch-lobby-card {
+    width: min(1180px, 98vw);
+    min-height: calc(100svh - 20px);
+    padding: 0;
+    display: grid;
+    grid-template-columns: 210px minmax(0, 1fr);
+    grid-template-areas:
+      "top top"
+      "players body";
+    align-content: start;
+    column-gap: 24px;
+    row-gap: 8px;
+  }
+
+  .sketch-lobby-top {
+    grid-area: top;
+    margin-bottom: 0;
+  }
+
+  .sketch-player-row {
+    grid-area: players;
+    grid-template-columns: 1fr;
+    gap: 18px;
+    margin-bottom: 0;
+    align-self: start;
+    position: sticky;
+    top: 10px;
+  }
+
+  .sketch-player-slot {
+    grid-template-columns: auto minmax(0, 1fr);
+    grid-template-areas:
+      "avatar head"
+      "meter status";
+    justify-items: start;
+    align-items: center;
+    gap: 6px 12px;
+    text-align: left;
+    padding: 6px 4px;
+  }
+
+  .sketch-player-head {
+    grid-area: head;
+    justify-items: start;
+    gap: 2px;
+  }
+
+  .sketch-player-avatar {
+    grid-area: avatar;
+    width: 56px;
+    height: 60px;
+  }
+
+  .sketch-score-meter {
+    grid-area: meter;
+    width: 56px;
+  }
+
+  .sketch-player-status {
+    grid-area: status;
+    margin: 0;
+  }
+
+  .sketch-player-label {
+    font-size: 0.95rem;
+    max-width: 132px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .sketch-player-score,
+  .sketch-player-status {
+    font-size: 0.74rem;
+  }
+
+  .sketch-player-avatar {
+    background:
+      radial-gradient(circle at 33% 32%, #111 0 2px, transparent 3px),
+      radial-gradient(circle at 67% 32%, #111 0 2px, transparent 3px),
+      var(--player-color);
+  }
+
+  .sketch-player-avatar-mouth {
+    width: 14px;
+  }
+
+  .sketch-player-avatar-eye {
+    top: 15px;
+    width: 12px;
+  }
+
+  .sketch-player-avatar-eye.left {
+    left: 10px;
+  }
+
+  .sketch-player-avatar-eye.right {
+    right: 10px;
+  }
+
+  .sketch-player-slot:nth-child(1) .sketch-player-avatar-trait {
+    top: -12px;
+    width: 42px;
+    height: 14px;
+  }
+
+  .sketch-player-slot:nth-child(2) .sketch-player-avatar-mouth {
+    top: 35px;
+    width: 18px;
+    height: 9px;
+  }
+
+  .sketch-player-slot:nth-child(3) .sketch-player-avatar-mouth {
+    top: 38px;
+    width: 17px;
+    height: 8px;
+  }
+
+  .sketch-player-slot:nth-child(4) .sketch-player-avatar-trait {
+    top: 16px;
+    width: 42px;
+    height: 14px;
+  }
+
+  .sketch-lobby-body {
+    grid-area: body;
+  }
+
+  .sketch-main-column {
+    max-width: none;
+    gap: 8px;
+  }
+
+  .sketch-stage-header {
+    grid-template-columns: minmax(0, 1fr) auto;
+    align-items: center;
+    justify-items: start;
+    gap: 14px;
+    margin-bottom: 6px;
+    text-align: left;
+  }
+
+  .sketch-stage-title {
+    font-size: clamp(1.35rem, 2.2vw, 2rem);
+    max-width: none;
+  }
+
+  .sketch-stage-turn {
+    justify-items: end;
+  }
+
+  .sketch-turn-status {
+    margin-bottom: 10px;
+    max-width: none;
+    text-align: left;
+    font-size: 0.88rem;
+  }
+
+  .sketch-stage-main {
+    gap: 12px;
+  }
+
+  .sketch-bid-card {
+    width: min(780px, 100%);
+    padding: 12px 16px;
+    gap: 12px;
+  }
+
+  .sketch-bid-main > strong {
+    width: 66px;
+    font-size: 2rem;
+  }
+
+  .sketch-bid-control {
+    width: min(300px, 100%);
+    gap: 7px;
+  }
+
+  .sketch-word-input {
+    padding: 9px 12px;
+  }
+
+  .sketch-quick-bids button {
+    min-height: 34px;
+  }
+
+  .sketch-stage-actions {
+    gap: 8px;
+  }
+
+  .sketch-stage-actions .primary,
+  .sketch-secondary-action {
+    padding: 10px 20px;
+    font-size: 1rem;
+  }
+
+  .sketch-focus-action {
+    padding: 16px 38px;
+    font-size: clamp(1.25rem, 2.2vw, 1.75rem);
+  }
+
+  .sketch-writing-focus,
+  .sketch-result-card {
+    width: min(900px, 100%);
+    padding: 12px 16px;
+    gap: 10px 16px;
+  }
+
+  .sketch-writing-timer {
+    width: 72px;
+  }
+
+  .sketch-writing-timer span {
+    font-size: 1.65rem;
+  }
+
+  .sketch-writing-title,
+  .sketch-result-title {
+    font-size: clamp(1.55rem, 3vw, 2.6rem);
+  }
+
+  .sketch-writing-copy,
+  .sketch-result-copy,
+  .sketch-writing-progress p {
+    font-size: 0.88rem;
+  }
+
+  .sketch-writing-input {
+    min-height: 46px;
+    font-size: 1rem;
+  }
+
+  .sketch-accepted-strip span,
+  .sketch-result-word-list li {
+    padding: 7px 10px;
+    font-size: 0.82rem;
+  }
+
+  .sketch-result-stats div {
+    padding: 10px;
+  }
+}
+
 .sketch-lobby-card::before {
   display: none;
 }
@@ -652,8 +907,9 @@
 }
 
 .sketch-player-row {
-  gap: 18px;
-  margin-bottom: 56px;
+  gap: 14px;
+  margin-bottom: 28px;
+  align-items: start;
 }
 
 .sketch-player-slot {
@@ -663,10 +919,10 @@
   border: 0;
   background: transparent;
   border-radius: 0;
-  padding: 8px 6px;
+  padding: 4px 6px;
   display: grid;
   justify-items: center;
-  gap: 8px;
+  gap: 5px;
   border-radius: 16px;
   transition: transform 0.2s ease, background-color 0.2s ease, box-shadow 0.2s ease;
 }
@@ -701,29 +957,29 @@
   display: grid;
   align-items: center;
   justify-items: center;
-  gap: 6px;
+  gap: 4px;
 }
 
 .sketch-player-label {
   margin: 0;
-  font-size: 0.92rem;
+  font-size: 0.82rem;
   line-height: 1.2;
   color: #263043;
 }
 
 .sketch-player-score {
-  font-size: 0.78rem;
+  font-size: 0.72rem;
   font-weight: 700;
   color: var(--player-accent);
   background: #fffdf8;
   border-radius: 999px;
-  padding: 4px 8px;
+  padding: 3px 7px;
   white-space: nowrap;
 }
 
 .sketch-score-meter {
-  width: 58px;
-  height: 5px;
+  width: 46px;
+  height: 4px;
   overflow: hidden;
   border-radius: 999px;
   background: rgba(255, 253, 248, 0.38);
@@ -737,14 +993,14 @@
 }
 
 .sketch-player-avatar {
-  width: 54px;
-  height: 58px;
+  width: 42px;
+  height: 46px;
   position: relative;
   background:
     radial-gradient(circle at 33% 32%, #111 0 3px, transparent 4px),
     radial-gradient(circle at 67% 32%, #111 0 3px, transparent 4px),
     var(--player-color);
-  border: 3px solid #15151f;
+  border: 2px solid #15151f;
   border-radius: 999px 999px 18px 18px;
   box-shadow: none;
   overflow: visible;
@@ -760,8 +1016,8 @@
   z-index: 1;
   left: 50%;
   top: 50%;
-  width: 14px;
-  height: 4px;
+  width: 11px;
+  height: 3px;
   border-radius: 999px;
   background: #15151f;
   transform: translate(-50%, -50%);
@@ -776,20 +1032,20 @@
 }
 
 .sketch-player-avatar-eye {
-  top: 15px;
-  width: 12px;
-  height: 4px;
+  top: 12px;
+  width: 9px;
+  height: 3px;
   border-radius: 999px;
   background: #15151f;
   opacity: 0;
 }
 
 .sketch-player-avatar-eye.left {
-  left: 10px;
+  left: 8px;
 }
 
 .sketch-player-avatar-eye.right {
-  right: 10px;
+  right: 8px;
 }
 
 .sketch-player-avatar-trait {
@@ -798,11 +1054,11 @@
 
 .sketch-player-slot:nth-child(1) .sketch-player-avatar-trait {
   left: 50%;
-  top: -12px;
-  width: 40px;
-  height: 14px;
-  border: 3px solid #15151f;
-  border-bottom-width: 5px;
+  top: -9px;
+  width: 32px;
+  height: 11px;
+  border: 2px solid #15151f;
+  border-bottom-width: 4px;
   border-radius: 14px 14px 7px 7px;
   background: #263043;
   opacity: 1;
@@ -812,19 +1068,19 @@
 .sketch-player-slot:nth-child(1) .sketch-player-avatar-trait::after {
   content: "";
   position: absolute;
-  left: -9px;
-  right: -9px;
-  bottom: -7px;
-  height: 5px;
+  left: -7px;
+  right: -7px;
+  bottom: -6px;
+  height: 4px;
   border-radius: 999px;
   background: #15151f;
 }
 
 .sketch-player-slot:nth-child(2) .sketch-player-avatar-mouth {
-  top: 34px;
-  width: 18px;
-  height: 9px;
-  border: 3px solid #15151f;
+  top: 27px;
+  width: 15px;
+  height: 7px;
+  border: 2px solid #15151f;
   border-top: 0;
   border-radius: 0 0 999px 999px;
   background: transparent;
@@ -843,10 +1099,10 @@
 }
 
 .sketch-player-slot:nth-child(3) .sketch-player-avatar-mouth {
-  top: 37px;
-  width: 16px;
-  height: 7px;
-  border: 3px solid #15151f;
+  top: 30px;
+  width: 13px;
+  height: 6px;
+  border: 2px solid #15151f;
   border-bottom: 0;
   border-radius: 999px 999px 0 0;
   background: transparent;
@@ -854,14 +1110,14 @@
 
 .sketch-player-slot:nth-child(4) .sketch-player-avatar-trait {
   left: 50%;
-  top: 15px;
-  width: 40px;
-  height: 14px;
-  border: 3px solid #15151f;
+  top: 12px;
+  width: 32px;
+  height: 11px;
+  border: 2px solid #15151f;
   border-radius: 999px;
   background:
-    radial-gradient(circle at 28% 50%, rgba(255, 255, 255, 0.75) 0 6px, transparent 7px),
-    radial-gradient(circle at 72% 50%, rgba(255, 255, 255, 0.75) 0 6px, transparent 7px),
+    radial-gradient(circle at 28% 50%, rgba(255, 255, 255, 0.75) 0 5px, transparent 6px),
+    radial-gradient(circle at 72% 50%, rgba(255, 255, 255, 0.75) 0 5px, transparent 6px),
     rgba(205, 232, 255, 0.82);
   opacity: 1;
   transform: translateX(-50%);
@@ -871,19 +1127,19 @@
   content: "";
   position: absolute;
   left: 50%;
-  top: -3px;
-  width: 3px;
-  height: 14px;
+  top: -2px;
+  width: 2px;
+  height: 11px;
   background: #15151f;
   transform: translateX(-50%);
 }
 
 .sketch-player-status {
   margin: 2px 0 0;
-  padding: 3px 8px;
+  padding: 2px 7px;
   border-radius: 999px;
   background: rgba(255, 253, 248, 0.5);
-  font-size: 0.72rem;
+  font-size: 0.66rem;
   color: rgba(38, 48, 67, 0.72);
   font-weight: 700;
 }
@@ -920,14 +1176,14 @@
 
 .sketch-lobby-body {
   grid-template-columns: 1fr;
-  gap: 18px;
+  gap: 12px;
   min-height: 0;
 }
 
 .sketch-main-column {
   display: grid;
-  gap: 22px;
-  max-width: 920px;
+  gap: 14px;
+  max-width: 1120px;
   width: 100%;
   justify-self: center;
 }
@@ -943,15 +1199,15 @@
 .sketch-stage-header {
   display: grid;
   justify-items: center;
-  gap: 10px;
-  margin-bottom: 18px;
+  gap: 8px;
+  margin-bottom: 10px;
   text-align: center;
 }
 
 .sketch-stage-kicker {
-  margin: 0 0 8px;
+  margin: 0 0 5px;
   color: rgba(255, 253, 248, 0.72);
-  font-size: 0.82rem;
+  font-size: 0.74rem;
   font-weight: 800;
   letter-spacing: 0.1em;
   text-transform: uppercase;
@@ -960,7 +1216,7 @@
 .sketch-stage-title {
   margin: 0;
   font-family: var(--display);
-  font-size: clamp(2.1rem, 4vw, 3.25rem);
+  font-size: clamp(1.65rem, 3vw, 2.55rem);
   color: #fffdf8;
   max-width: 760px;
   text-shadow: 0 2px 18px rgba(38, 48, 67, 0.14);
@@ -990,8 +1246,8 @@
 }
 
 .sketch-turn-status {
-  margin: 0 auto 28px;
-  font-size: 1rem;
+  margin: 0 auto 16px;
+  font-size: 0.94rem;
   color: rgba(255, 253, 248, 0.76);
   max-width: 620px;
   text-align: center;
@@ -1004,7 +1260,9 @@
 }
 
 .sketch-stage-grid.is-focused {
-  display: block;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  justify-items: center;
 }
 
 .sketch-stage-main,
@@ -1053,6 +1311,125 @@
   font-weight: 600;
   line-height: 1.35;
   overflow-wrap: anywhere;
+}
+
+.sketch-bid-card {
+  display: grid;
+  grid-template-columns: minmax(180px, 0.8fr) minmax(220px, 1fr);
+  align-items: center;
+  gap: 16px;
+  width: min(760px, 100%);
+  padding: clamp(14px, 2vw, 20px);
+  border-radius: 22px;
+  background: rgba(255, 253, 248, 0.14);
+  border: 1px solid rgba(255, 253, 248, 0.22);
+  text-align: center;
+}
+
+.sketch-bid-card.is-actionable {
+  box-shadow: 0 16px 36px rgba(38, 48, 67, 0.13);
+}
+
+.sketch-bid-meta {
+  display: grid;
+  gap: 5px;
+  color: #fffdf8;
+  text-align: left;
+}
+
+.sketch-bid-meta span {
+  color: rgba(255, 253, 248, 0.62);
+  font-size: 0.72rem;
+  font-weight: 850;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.sketch-bid-meta strong {
+  font-family: var(--display);
+  font-size: clamp(1.35rem, 2.5vw, 2rem);
+  line-height: 1;
+  overflow-wrap: anywhere;
+}
+
+.sketch-bid-main {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  justify-items: center;
+  align-items: center;
+  gap: 6px;
+  color: #fffdf8;
+  text-align: left;
+}
+
+.sketch-bid-main .sketch-summary-label {
+  grid-column: 1 / -1;
+  justify-self: start;
+}
+
+.sketch-bid-main > strong {
+  display: grid;
+  place-items: center;
+  width: 78px;
+  aspect-ratio: 1;
+  border-radius: 999px;
+  background: #fffdf8;
+  color: #5b43a5;
+  font-family: var(--display);
+  font-size: 2.45rem;
+  box-shadow: 0 14px 30px rgba(38, 48, 67, 0.15);
+}
+
+.sketch-bid-main p,
+.sketch-bid-hint {
+  margin: 0;
+  color: rgba(255, 253, 248, 0.78);
+  font-size: 0.96rem;
+  font-weight: 700;
+}
+
+.sketch-bid-hint {
+  grid-column: 1 / -1;
+  text-align: center;
+}
+
+.sketch-bid-main.empty p {
+  grid-column: 1 / -1;
+  color: rgba(255, 253, 248, 0.86);
+}
+
+.sketch-bid-hint {
+  color: #e7ffe9;
+}
+
+.sketch-bid-control {
+  display: grid;
+  gap: 10px;
+  width: min(360px, 100%);
+}
+
+.sketch-quick-bids {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 8px;
+}
+
+.sketch-quick-bids button {
+  min-height: 42px;
+  border-radius: 999px;
+  border: 1px solid rgba(255, 253, 248, 0.32);
+  background: rgba(255, 253, 248, 0.18);
+  color: #fffdf8;
+  cursor: pointer;
+  font-weight: 850;
+}
+
+.sketch-quick-bids button:hover {
+  background: rgba(255, 253, 248, 0.28);
+}
+
+.sketch-bluff-action {
+  background: rgba(255, 225, 239, 0.3);
 }
 
 .sketch-input-block {
@@ -1282,9 +1659,11 @@
 
 .sketch-writing-focus {
   display: grid;
-  gap: 18px;
-  width: min(760px, 100%);
-  padding: clamp(20px, 4vw, 34px);
+  grid-template-columns: minmax(260px, 0.92fr) minmax(280px, 1fr);
+  align-items: center;
+  gap: 16px 22px;
+  width: min(980px, 100%);
+  padding: clamp(16px, 2.5vw, 24px);
   border-radius: 24px;
   background: rgba(255, 253, 248, 0.14);
   border: 1px solid rgba(255, 253, 248, 0.22);
@@ -1299,7 +1678,7 @@
 }
 
 .sketch-writing-timer {
-  width: 112px;
+  width: 88px;
   aspect-ratio: 1;
   border-radius: 999px;
   display: grid;
@@ -1312,7 +1691,7 @@
 
 .sketch-writing-timer span {
   font-family: var(--display);
-  font-size: 2.45rem;
+  font-size: 2rem;
   line-height: 0.9;
 }
 
@@ -1329,7 +1708,7 @@
   margin: 0;
   color: #fffdf8;
   font-family: var(--display);
-  font-size: clamp(2.2rem, 5vw, 4rem);
+  font-size: clamp(1.8rem, 4vw, 3.1rem);
   line-height: 0.98;
   overflow-wrap: anywhere;
 }
@@ -1345,6 +1724,13 @@
   display: grid;
   gap: 9px;
   color: #fffdf8;
+}
+
+.sketch-writing-input-row,
+.sketch-accepted-strip,
+.sketch-writing-empty,
+.sketch-writing-focus .sketch-feedback-row {
+  grid-column: 2;
 }
 
 .sketch-writing-progress div:first-child {
@@ -1437,6 +1823,107 @@
   font-size: 0.9rem;
 }
 
+.sketch-result-card {
+  display: grid;
+  grid-template-columns: minmax(260px, 0.8fr) minmax(300px, 1fr);
+  align-items: center;
+  gap: 14px 20px;
+  width: min(980px, 100%);
+  padding: clamp(16px, 2.5vw, 24px);
+  border-radius: 24px;
+  background: rgba(255, 253, 248, 0.16);
+  border: 1px solid rgba(255, 253, 248, 0.24);
+  box-shadow: 0 18px 40px rgba(38, 48, 67, 0.12);
+  text-align: center;
+}
+
+.sketch-result-title {
+  margin: 0;
+  color: #fffdf8;
+  font-family: var(--display);
+  font-size: clamp(1.9rem, 4vw, 3.4rem);
+  line-height: 0.98;
+}
+
+.sketch-result-copy {
+  margin: 0 auto;
+  max-width: 580px;
+  color: rgba(255, 253, 248, 0.82);
+  font-size: 1.02rem;
+  font-weight: 700;
+  line-height: 1.45;
+}
+
+.sketch-result-card > .sketch-stage-kicker,
+.sketch-result-title,
+.sketch-result-copy {
+  grid-column: 1;
+}
+
+.sketch-result-stats,
+.sketch-result-word-list,
+.sketch-result-card .sketch-stage-actions {
+  grid-column: 2;
+}
+
+.sketch-result-stats {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.sketch-result-stats div {
+  display: grid;
+  gap: 4px;
+  min-width: 0;
+  border-radius: 16px;
+  padding: 14px 12px;
+  background: rgba(255, 253, 248, 0.88);
+  color: #263043;
+}
+
+.sketch-result-stats span {
+  color: rgba(91, 67, 165, 0.72);
+  font-size: 0.72rem;
+  font-weight: 850;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.sketch-result-stats strong {
+  color: #5b43a5;
+  font-size: 1.16rem;
+  overflow-wrap: anywhere;
+}
+
+.sketch-result-word-list {
+  display: grid;
+  gap: 8px;
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.sketch-result-word-list li {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  border-radius: 14px;
+  padding: 10px 12px;
+  background: rgba(255, 253, 248, 0.9);
+  color: #263043;
+  font-weight: 800;
+}
+
+.sketch-result-word-list li.correct strong {
+  color: #2f7a57;
+}
+
+.sketch-result-word-list li.incorrect strong {
+  color: #b5477a;
+}
+
 .sketch-challenge-modal {
   background: #fffdf8;
   border-color: var(--game-line);
@@ -1518,8 +2005,36 @@
   }
 
   .sketch-writing-hero,
-  .sketch-writing-input-wrap {
+  .sketch-writing-input-wrap,
+  .sketch-writing-focus,
+  .sketch-result-card,
+  .sketch-bid-card,
+  .sketch-bid-main,
+  .sketch-result-stats {
     grid-template-columns: 1fr;
+  }
+
+  .sketch-writing-input-row,
+  .sketch-accepted-strip,
+  .sketch-writing-empty,
+  .sketch-writing-focus .sketch-feedback-row,
+  .sketch-result-card > .sketch-stage-kicker,
+  .sketch-result-title,
+  .sketch-result-copy,
+  .sketch-result-stats,
+  .sketch-result-word-list,
+  .sketch-result-card .sketch-stage-actions {
+    grid-column: auto;
+  }
+
+  .sketch-bid-meta,
+  .sketch-bid-main {
+    text-align: center;
+    justify-items: center;
+  }
+
+  .sketch-bid-main .sketch-summary-label {
+    justify-self: center;
   }
 
   .sketch-writing-hero {
@@ -1573,5 +2088,75 @@
 
   .sketch-writing-timer {
     width: 92px;
+  }
+}
+
+@media (min-width: 900px) {
+  .sketch-player-row {
+    gap: 18px;
+  }
+
+  .sketch-player-avatar {
+    width: 56px;
+    height: 60px;
+    background:
+      radial-gradient(circle at 33% 32%, #111 0 3px, transparent 4px),
+      radial-gradient(circle at 67% 32%, #111 0 3px, transparent 4px),
+      var(--player-color);
+  }
+
+  .sketch-score-meter {
+    width: 56px;
+  }
+
+  .sketch-player-label {
+    font-size: 0.95rem;
+    max-width: 132px;
+  }
+
+  .sketch-player-score,
+  .sketch-player-status {
+    font-size: 0.74rem;
+  }
+
+  .sketch-player-avatar-mouth {
+    width: 14px;
+  }
+
+  .sketch-player-avatar-eye {
+    top: 15px;
+    width: 12px;
+  }
+
+  .sketch-player-avatar-eye.left {
+    left: 10px;
+  }
+
+  .sketch-player-avatar-eye.right {
+    right: 10px;
+  }
+
+  .sketch-player-slot:nth-child(1) .sketch-player-avatar-trait {
+    top: -12px;
+    width: 42px;
+    height: 14px;
+  }
+
+  .sketch-player-slot:nth-child(2) .sketch-player-avatar-mouth {
+    top: 35px;
+    width: 18px;
+    height: 9px;
+  }
+
+  .sketch-player-slot:nth-child(3) .sketch-player-avatar-mouth {
+    top: 38px;
+    width: 17px;
+    height: 8px;
+  }
+
+  .sketch-player-slot:nth-child(4) .sketch-player-avatar-trait {
+    top: 16px;
+    width: 42px;
+    height: 14px;
   }
 }
