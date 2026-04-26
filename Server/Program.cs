@@ -55,6 +55,7 @@ builder.Services.AddScoped<GameFlowService>();
 builder.Services.AddSingleton<GameTurnStateService>();
 builder.Services.AddSingleton<GameConcurrencyService>();
 builder.Services.AddSingleton<RoundLiveDraftService>();
+builder.Services.AddSingleton<GameUpdateNotifier>();
 
 var app = builder.Build();
 

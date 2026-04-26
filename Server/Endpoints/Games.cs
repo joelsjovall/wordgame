@@ -65,7 +65,11 @@ public static class GamesEndpoints
             });
         });
 
-        group.MapPost("/join", async (JoinGameRequest request, AppDbContext dbContext, CancellationToken cancellationToken) =>
+        group.MapPost("/join", async (
+            JoinGameRequest request,
+            AppDbContext dbContext,
+            GameUpdateNotifier gameUpdateNotifier,
+            CancellationToken cancellationToken) =>
         {
             var username = request.Username?.Trim() ?? string.Empty;
             if (string.IsNullOrWhiteSpace(username))
@@ -138,6 +142,8 @@ public static class GamesEndpoints
             SetLives(gamePlayer, 3);
             dbContext.GamePlayers.Add(gamePlayer);
             await dbContext.SaveChangesAsync(cancellationToken);
+
+            gameUpdateNotifier.NotifyGameUpdated(gameId);
 
             return Results.Ok(new
             {
@@ -214,12 +220,47 @@ public static class GamesEndpoints
             return Results.Ok(state);
         });
 
+        group.MapGet("/{gameId:int}/events", async (
+            int gameId,
+            HttpContext httpContext,
+            GameUpdateNotifier gameUpdateNotifier) =>
+        {
+            httpContext.Response.Headers.CacheControl = "no-cache";
+            httpContext.Response.Headers.Connection = "keep-alive";
+            httpContext.Response.ContentType = "text/event-stream";
+
+            var (subscriptionId, reader) = gameUpdateNotifier.Subscribe(gameId);
+
+            try
+            {
+                await httpContext.Response.WriteAsync("event: connected\n", httpContext.RequestAborted);
+                await httpContext.Response.WriteAsync($"data: {DateTimeOffset.UtcNow.ToUnixTimeMilliseconds()}\n\n", httpContext.RequestAborted);
+                await httpContext.Response.Body.FlushAsync(httpContext.RequestAborted);
+
+                await foreach (var payload in reader.ReadAllAsync(httpContext.RequestAborted))
+                {
+                    await httpContext.Response.WriteAsync("event: game-updated\n", httpContext.RequestAborted);
+                    await httpContext.Response.WriteAsync($"data: {payload}\n\n", httpContext.RequestAborted);
+                    await httpContext.Response.Body.FlushAsync(httpContext.RequestAborted);
+                }
+            }
+            catch (OperationCanceledException)
+            {
+                // Browser disconnected.
+            }
+            finally
+            {
+                gameUpdateNotifier.Unsubscribe(gameId, subscriptionId);
+            }
+        });
+
         group.MapPost("/{gameId:int}/ready", async (
             int gameId,
             MarkPlayerReadyRequest request,
             AppDbContext dbContext,
             GameFlowService gameFlowService,
             GameTurnStateService gameTurnStateService,
+            GameUpdateNotifier gameUpdateNotifier,
             CancellationToken cancellationToken) =>
         {
             if (request.PlayerId <= 0)
@@ -276,6 +317,7 @@ public static class GamesEndpoints
             }
 
             var state = await gameFlowService.GetGameStateAsync(gameId, cancellationToken);
+            gameUpdateNotifier.NotifyGameUpdated(gameId);
             return Results.Ok(state);
         });
 
@@ -285,6 +327,7 @@ public static class GamesEndpoints
             AppDbContext dbContext,
             GameFlowService gameFlowService,
             GameTurnStateService gameTurnStateService,
+            GameUpdateNotifier gameUpdateNotifier,
             CancellationToken cancellationToken) =>
         {
             if (request.CategoryId <= 0)
@@ -400,6 +443,8 @@ public static class GamesEndpoints
                 request.CategoryId,
                 openingBidCount,
                 cancellationToken);
+
+            gameUpdateNotifier.NotifyGameUpdated(game.Id);
 
             return Results.Created($"/api/rounds/{round.Id}", new
             {
