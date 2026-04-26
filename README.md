@@ -176,3 +176,4 @@ Based on the current test plan, the project focuses on:
 - The frontend uses a Vite proxy to forward `/api` requests to the backend in local development.
 - The frontend can also read `VITE_API_BASE_URL` if you want to point it at another backend.
 - The solution file includes the server plus unit and API test projects.
+
