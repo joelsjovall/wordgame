@@ -246,7 +246,7 @@ function GameLobbyPage() {
       status: isPreviewWritingWords ? "challenge_active" : previewRoundResults.status,
       currentPlayerId: isPreviewWritingWords ? 1 : previewRoundResults.currentPlayerId,
       currentPlayerName: isPreviewWritingWords ? "joellll111" : previewRoundResults.currentPlayerName,
-      deadlineUtc: isPreviewWritingWords ? new Date(Date.now() + 44000).toISOString() : previewRoundResults.deadlineUtc,
+      deadlineUtc: previewRoundResults.deadlineUtc,
       secondsRemaining: isPreviewWritingWords ? 44 : previewRoundResults.secondsRemaining,
     }
     : null);
@@ -256,7 +256,7 @@ function GameLobbyPage() {
       phase: isPreviewWritingWords ? "challenge_active" : previewGameState.phase,
       activePlayerId: isPreviewWritingWords ? 1 : previewGameState.activePlayerId,
       activePlayerName: isPreviewWritingWords ? "joellll111" : previewGameState.activePlayerName,
-      deadlineUtc: isPreviewWritingWords ? new Date(Date.now() + 44000).toISOString() : previewGameState.deadlineUtc,
+      deadlineUtc: previewGameState.deadlineUtc,
       secondsRemaining: isPreviewWritingWords ? 44 : previewGameState.secondsRemaining,
     }
     : null);
