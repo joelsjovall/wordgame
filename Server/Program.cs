@@ -17,7 +17,13 @@ builder.Services.AddCors(options =>
             .Get<string[]>() ?? [];
 
         var origins = allowedOrigins
-            .Concat(["http://localhost:5173", "https://localhost:5173"])
+            .Concat([
+                "http://localhost:5173",
+                "https://localhost:5173",
+                "https://wordgame-frontend.onrender.com"
+            ])
+            .Select(origin => origin.Trim().TrimEnd('/'))
+            .Where(origin => !string.IsNullOrWhiteSpace(origin))
             .Distinct()
             .ToArray();
 
